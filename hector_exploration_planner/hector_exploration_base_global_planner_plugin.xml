@@ -1,0 +1,8 @@
+<library path="lib/libhector_exploration_base_global_planner_plugin">
+  <class name="hector_exploration_planner/HectorExplorationBaseGlobalPlannerPlugin" type="hector_exploration_planner::HectorExplorationBaseGlobalPlannerPlugin" base_class_type="nav_core::BaseGlobalPlanner">
+<description>
+	A global planner using the exploration transform algorithm
+</description>
+</library>
+
+
