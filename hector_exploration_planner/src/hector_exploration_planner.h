@@ -94,8 +94,8 @@ private:
    */
   void setupMapData();
   void deleteMapData();
-  bool buildObstacleTrans();
-  bool buildExplorationTrans(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty);
+  bool buildobstacle_trans_array_();
+  bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty);
   bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
   bool recoveryMakePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
   unsigned int cellDanger(int point);
@@ -127,14 +127,14 @@ private:
 
   ros::Publisher visualization_pub_;
   ros::ServiceClient path_service_client_;
-  costmap_2d::Costmap2DROS* costmap_ros;
-  costmap_2d::Costmap2D costmap;
+  costmap_2d::Costmap2DROS* costmap_ros_;
+  costmap_2d::Costmap2D costmap_;
 
-  const unsigned char* occupancyGrid;
-  unsigned int* explorationTrans;
-  unsigned int* obstacleTrans;
-  int* frontierMap;
-  bool* isGoal;
+  const unsigned char* occupancy_grid_array_;
+  unsigned int* exploration_trans_array_;
+  unsigned int* obstacle_trans_array_;
+  int* frontier_map_array_;
+  bool* is_goal_array_;
 
   bool initialized;
   int previous_goal;
