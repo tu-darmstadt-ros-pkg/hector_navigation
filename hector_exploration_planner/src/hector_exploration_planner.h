@@ -136,13 +136,13 @@ private:
   int* frontier_map_array_;
   bool* is_goal_array_;
 
-  bool initialized;
-  int previous_goal;
+  bool initialized_;
+  int previous_goal_;
 
   std::string name;
-  unsigned int mapWidth;
-  unsigned int mapHeight;
-  unsigned int mapPoints;
+  unsigned int map_width_;
+  unsigned int map_height_;
+  unsigned int num_map_cells_;
 
   // Parameters
   bool p_plan_in_unknown_;
