@@ -647,7 +647,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
       frontier_is_valid = false;
     }
     for(size_t i = 0; i < noFrontiers.size(); ++i){
-      geometry_msgs::PoseStamped noFrontier = noFrontiers[i];
+      const geometry_msgs::PoseStamped& noFrontier = noFrontiers[i];
       unsigned int mx,my;
       costmap.worldToMap(noFrontier.pose.position.x,noFrontier.pose.position.y,mx,my);
       int no_frontier_point = costmap.getIndex(x,y);

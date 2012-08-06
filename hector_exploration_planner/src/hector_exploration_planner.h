@@ -58,15 +58,40 @@ public:
   ~HectorExplorationPlanner();
   HectorExplorationPlanner(std::string name,costmap_2d::Costmap2DROS *costmap_ros);
   void initialize(std::string name,costmap_2d::Costmap2DROS *costmap_ros);
+
+  /**
+   * Plans from start to given goal. If orientation quaternion of goal is all zeros, calls exploration instead. This is a hacky workaround that
+   * has to be refactored.
+   * @param start The start point
+   * @param goal The goal point (Use orientation quaternion all 0 to let exploration find goal point)
+   * @param plan The generated plan
+   */
   bool makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
+
+  /**
+    * Given a start point, finds a frontier between known and unknown space and generates a plan to go there
+    * @param start The start point
+    * @param plan The plan to explore into unknown space
+    */
   bool doExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan);
+
+  /**
+    * This can be used if there are no frontiers to unknown space left in the map. The robot will retrieve it's path travelled so far via a service
+    * and try to go to places having a large distance to this path.
+    * @param start The start point
+    * @param plan The plan to explore into unknown space
+    */
   bool doInnerExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan);
+
   bool doAlternativeExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan);
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers);
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers);
   bool findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier);
 
 private:
+  /**
+   * Updates costmap data and resizes internal data structures if costmap size has changed. Should be called once before every planning command
+   */
   void setupMapData();
   void deleteMapData();
   bool buildObstacleTrans();
