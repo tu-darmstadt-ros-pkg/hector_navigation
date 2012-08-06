@@ -67,6 +67,8 @@ public:
   bool findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier);
 
 private:
+  void setupMapData();
+  void deleteMapData();
   bool buildObstacleTrans();
   bool buildExplorationTrans(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty);
   bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
@@ -98,12 +100,11 @@ private:
   int down(int point);
   int downleft(int point);
 
-
-
   ros::Publisher visualization_pub_;
   ros::ServiceClient path_service_client_;
   costmap_2d::Costmap2DROS* costmap_ros;
   costmap_2d::Costmap2D costmap;
+
   const unsigned char* occupancyGrid;
   unsigned int* explorationTrans;
   unsigned int* obstacleTrans;
@@ -111,19 +112,23 @@ private:
   bool* isGoal;
 
   bool initialized;
-  bool planInUnknown;
-  bool useInflatedObs;
-  int goal_angle_penalty;
+  int previous_goal;
+
   std::string name;
   unsigned int mapWidth;
   unsigned int mapHeight;
   unsigned int mapPoints;
-  int minObstacleDist;
-  int minFrontierSize;
-  double alpha;
-  int previous_goal;
-  double dist_for_goal_reached;
-  double same_frontier_dist;
+
+  // Parameters
+  bool p_plan_in_unknown_;
+  bool p_use_inflated_obs_;
+  int p_goal_angle_penalty_;
+  int p_min_obstacle_dist_;
+  int p_min_frontier_size_;
+  double p_alpha_;
+  double p_dist_for_goal_reached_;
+  double p_same_frontier_dist_;
+
 };
 }
 

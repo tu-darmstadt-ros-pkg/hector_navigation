@@ -30,21 +30,21 @@
 
 using namespace hector_exploration_planner;
 
-HectorExplorationPlanner::HectorExplorationPlanner() : costmap_ros(NULL), initialized(false) {}
+HectorExplorationPlanner::HectorExplorationPlanner()
+  : costmap_ros(0)
+  , occupancyGrid(0)
+  , explorationTrans(0)
+  , obstacleTrans(0)
+  , frontierMap(0)
+  , isGoal(0)
+  , initialized(false)
+  , mapWidth(0)
+  , mapHeight(0)
+  , mapPoints(0)
+  {}
 
 HectorExplorationPlanner::~HectorExplorationPlanner(){
-  if(explorationTrans){
-    delete[] explorationTrans;
-  }
-  if(obstacleTrans){
-    delete[] obstacleTrans;
-  }
-  if(isGoal){
-    delete[] isGoal;
-  }
-  if(frontierMap){
-    delete[] frontierMap;
-  }
+  this->deleteMapData();
 }
 
 HectorExplorationPlanner::HectorExplorationPlanner(std::string name, costmap_2d::Costmap2DROS *costmap_ros) :
@@ -57,7 +57,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   // unknown: 255, obstacle 254, inflated: 253, free: 0
 
   if(initialized){
-    ROS_INFO("[global_planner] HectorExplorationPlanner is already initialized!");
+    ROS_ERROR("[global_planner] HectorExplorationPlanner is already initialized! Please check why initialize() got called twice.");
     return;
   }
 
@@ -65,37 +65,25 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
   // initialize costmaps
   this->costmap_ros = costmap_ros;
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
-  mapWidth = costmap.getSizeInCellsX();
-  mapHeight = costmap.getSizeInCellsY();
-  mapPoints = mapWidth * mapHeight;
-
-  // initialize explorationTrans, obstacleTrans, goalMap and frontierMap
-  explorationTrans = new unsigned int[mapPoints];
-  obstacleTrans = new unsigned int[mapPoints];
-  isGoal = new bool[mapPoints];
-  frontierMap = new int[mapPoints];
-  clearFrontiers();
-  resetMaps();
+  this->setupMapData();
 
   // initialize parameters
   ros::NodeHandle private_nh_("~/" + name);
   ros::NodeHandle nh;
   visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
-  private_nh_.param("security_constant", alpha, 0.5);
-  private_nh_.param("min_obstacle_dist", minObstacleDist, 10);
-  private_nh_.param("plan_in_unknown", planInUnknown, false);
-  private_nh_.param("use_inflated_obstacle", useInflatedObs, true);
-  private_nh_.param("goal_angle_penalty", goal_angle_penalty, 50);
-  private_nh_.param("min_frontier_size", minFrontierSize, 5);
-  private_nh_.param("dist_for_goal_reached", dist_for_goal_reached, 0.25);
-  private_nh_.param("same_frontier_distance", same_frontier_dist, 0.25);
+  private_nh_.param("security_constant", p_alpha_, 0.5);
+  private_nh_.param("min_obstacle_dist", p_min_obstacle_dist_, 10);
+  private_nh_.param("plan_in_unknown", p_plan_in_unknown_, false);
+  private_nh_.param("use_inflated_obstacle", p_use_inflated_obs_, true);
+  private_nh_.param("goal_angle_penalty", p_goal_angle_penalty_, 50);
+  private_nh_.param("min_frontier_size", p_min_frontier_size_, 5);
+  private_nh_.param("dist_for_goal_reached", p_dist_for_goal_reached_, 0.25);
+  private_nh_.param("same_frontier_distance", p_same_frontier_dist_, 0.25);
 
   path_service_client_ = nh.serviceClient<hector_nav_msgs::GetRobotTrajectory>("trajectory");
 
-  ROS_DEBUG("[global_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, goal_angle_penalty:%d , min_frontier_size: %d, dist_for_goal_reached: %f, same_frontier: %f", alpha, minObstacleDist, planInUnknown, useInflatedObs, goal_angle_penalty, minFrontierSize,dist_for_goal_reached,same_frontier_dist);
-  minObstacleDist = minObstacleDist * STRAIGHT_COST;
+  ROS_DEBUG("[global_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, p_goal_angle_penalty_:%d , min_frontier_size: %d, p_dist_for_goal_reached_: %f, same_frontier: %f", p_alpha_, p_min_obstacle_dist_, p_plan_in_unknown_, p_use_inflated_obs_, p_goal_angle_penalty_, p_min_frontier_size_,p_dist_for_goal_reached_,p_same_frontier_dist_);
+  p_min_obstacle_dist_ = p_min_obstacle_dist_ * STRAIGHT_COST;
 
   this->name = name;
   this->initialized = true;
@@ -105,15 +93,11 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
+  this->setupMapData();
+
   // do exploration? (not used anymore? -> call doExploration())
-  bool explore = false;
   if ((goal.pose.orientation.w == 0.0) && (goal.pose.orientation.x == 0.0) &&
       (goal.pose.orientation.y == 0.0) && (goal.pose.orientation.z == 0.0)){
-    explore = true;
-  }
-
-
-  if(explore){
     return doExploration(start,plan);
   }
 
@@ -123,8 +107,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   // setup maps and goals
   resetMaps();
   plan.clear();
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
+
   std::vector<geometry_msgs::PoseStamped> goals;
 
   // create obstacle tranform
@@ -147,7 +130,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   costmap.worldToMap(goal.pose.position.x,goal.pose.position.y,mx,my);
   previous_goal = costmap.getIndex(mx,my);
 
-  ROS_INFO("[global_planner] planning: plan has been found! plansize: %d ", plan.size());
+  ROS_INFO("[global_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
 }
 
@@ -156,11 +139,11 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   ROS_INFO("[global_planner] exploration: starting exploration");
 
   // setup maps and goals
+
   resetMaps();
   clearFrontiers();
   plan.clear();
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
+
   std::vector<geometry_msgs::PoseStamped> goals;
 
 
@@ -169,7 +152,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   // search for frontiers
   if(findFrontiers(goals)){
-    ROS_INFO("[global_planner] exploration: found %d frontiers!", goals.size());
+    ROS_INFO("[global_planner] exploration: found %u frontiers!", (unsigned int)goals.size());
   } else {
     ROS_INFO("[global_planner] exploration: no frontiers have been found! starting inner-exploration");
     return doInnerExploration(start,plan);
@@ -193,7 +176,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   }
 
 
-  ROS_INFO("[global_planner] exploration: plan to a frontier has been found! plansize: %d", plan.size());
+  ROS_INFO("[global_planner] exploration: plan to a frontier has been found! plansize: %u", (unsigned int)plan.size());
   return true;
 }
 
@@ -201,20 +184,19 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   ROS_INFO("[global_planner] inner-exploration: starting exploration");
 
   // setup maps and goals
+
   resetMaps();
   clearFrontiers();
   plan.clear();
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
-  std::vector<geometry_msgs::PoseStamped> goals;
 
+  std::vector<geometry_msgs::PoseStamped> goals;
 
   // create obstacle tranform
   buildObstacleTrans();
 
   // search for frontiers
   if(findInnerFrontier(goals)){
-    ROS_INFO("[global_planner] inner-exploration: found %d inner-frontiers!", goals.size());
+    ROS_INFO("[global_planner] inner-exploration: found %u inner-frontiers!", (unsigned int)goals.size());
   } else {
     ROS_WARN("[global_planner] inner-exploration: no inner-frontiers have been found! exploration failed!");
     return false;
@@ -244,7 +226,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     previous_goal = costmap.getIndex(mx,my);
   }
 
-  ROS_INFO("[global_planner] inner-exploration: plan to an inner-frontier has been found! plansize: %d", plan.size());
+  ROS_INFO("[global_planner] inner-exploration: plan to an inner-frontier has been found! plansize: %u", (unsigned int)plan.size());
   return true;
 }
 
@@ -254,8 +236,7 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
   // setup maps and goals
   resetMaps();
   plan.clear();
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
+
   std::vector<geometry_msgs::PoseStamped> goals;
 
   std::vector<geometry_msgs::PoseStamped> old_frontier;
@@ -266,7 +247,7 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
 
   // search for frontiers
   if(findFrontiers(goals,old_frontier)){
-    ROS_INFO("[global_planner] alternative exploration: found %d frontiers!", goals.size());
+    ROS_INFO("[global_planner] alternative exploration: found %u frontiers!", (unsigned int) goals.size());
   } else {
     ROS_WARN("[global_planner] alternative exploration: no frontiers have been found!");
     return false;
@@ -285,8 +266,50 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
   costmap.worldToMap(thisgoal.pose.position.x,thisgoal.pose.position.y,mx,my);
   previous_goal = costmap.getIndex(mx,my);
 
-  ROS_INFO("[global_planner] alternative exploration: plan to a frontier has been found! plansize: %d ", plan.size());
+  ROS_INFO("[global_planner] alternative exploration: plan to a frontier has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
+}
+
+void HectorExplorationPlanner::setupMapData()
+{
+  if ((this->mapWidth != costmap_ros->getSizeInCellsX()) || (this->mapHeight != costmap_ros->getSizeInCellsY())){
+    this->deleteMapData();
+
+    mapWidth = costmap.getSizeInCellsX();
+    mapHeight = costmap.getSizeInCellsY();
+    mapPoints = mapWidth * mapHeight;
+
+    // initialize explorationTrans, obstacleTrans, goalMap and frontierMap
+    explorationTrans = new unsigned int[mapPoints];
+    obstacleTrans = new unsigned int[mapPoints];
+    isGoal = new bool[mapPoints];
+    frontierMap = new int[mapPoints];
+    clearFrontiers();
+    resetMaps();
+  }
+
+  costmap_ros->getCostmapCopy(costmap);
+  occupancyGrid = costmap.getCharMap();
+}
+
+void HectorExplorationPlanner::deleteMapData()
+{
+  if(explorationTrans){
+    delete[] explorationTrans;
+    explorationTrans = 0;
+  }
+  if(obstacleTrans){
+    delete[] obstacleTrans;
+    obstacleTrans = 0;
+  }
+  if(isGoal){
+    delete[] isGoal;
+    isGoal = 0;
+  }
+  if(frontierMap){
+    delete[] frontierMap;
+    frontierMap=0;
+  }
 }
 
 
@@ -392,14 +415,13 @@ bool HectorExplorationPlanner::buildObstacleTrans(){
     if(occupancyGrid[i] == costmap_2d::LETHAL_OBSTACLE){
       myqueue.push(i);
       obstacleTrans[i] = 0;
-    } else if(useInflatedObs){
+    } else if(p_use_inflated_obs_){
       if(occupancyGrid[i] == costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         myqueue.push(i);
         obstacleTrans[i] = 0;
       }
     }
   }
-
 
   // obstacle transform algorithm
   while(myqueue.size()){
@@ -514,7 +536,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
 
 
 
-  ROS_DEBUG("[global_planner] END: getTrajectory. Plansize %d", plan.size());
+  ROS_DEBUG("[global_planner] END: getTrajectory. Plansize %u", (unsigned int)plan.size());
   return !plan.empty();
 }
 
@@ -530,15 +552,13 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
 bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers){
 
   // get latest costmap
-  costmap_ros->getCostmapCopy(costmap);
-  occupancyGrid = costmap.getCharMap();
   clearFrontiers();
 
   // list of all frontiers in the occupancy grid
   std::vector<int> allFrontiers;
 
   // check for all cells in the occupancy grid whether or not they are frontier cells
-  for(int i = 0; i < mapPoints; ++i){
+  for(unsigned int i = 0; i < mapPoints; ++i){
     if(isFrontier(i)){
       allFrontiers.push_back(i);
     }
@@ -612,7 +632,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
 
     }
 
-    if(current_frontier_size < minFrontierSize){
+    if(current_frontier_size < p_min_frontier_size_){
       continue;
     }
 
@@ -626,7 +646,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     if(isFrontierReached(frontier_point)){
       frontier_is_valid = false;
     }
-    for(int i = 0; i < noFrontiers.size(); ++i){
+    for(size_t i = 0; i < noFrontiers.size(); ++i){
       geometry_msgs::PoseStamped noFrontier = noFrontiers[i];
       unsigned int mx,my;
       costmap.worldToMap(noFrontier.pose.position.x,noFrontier.pose.position.y,mx,my);
@@ -688,12 +708,12 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
     std::vector<geometry_msgs::PoseStamped>& traj_vector (srv_path.response.trajectory.poses);
     std::vector<geometry_msgs::PoseStamped> goals;
     size_t size = traj_vector.size();
-    ROS_DEBUG("[global_planner] size of trajectory vector %d", size);
+    ROS_DEBUG("[global_planner] size of trajectory vector %u", (unsigned int)size);
 
     if(size > 0){
       geometry_msgs::PoseStamped lastPose = traj_vector[0];
       goals.push_back(lastPose);
-      for(int i = 1; i < size; ++i){
+      for(size_t i = 1; i < size; ++i){
         const geometry_msgs::PoseStamped& pose = traj_vector[i];
         unsigned int x,y;
         costmap.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
@@ -712,7 +732,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       }
 
 
-      ROS_DEBUG("[global_planner] pushed %d goals (trajectory) for inner frontier-search", goals.size());
+      ROS_DEBUG("[global_planner] pushed %u goals (trajectory) for inner frontier-search", (unsigned int)goals.size());
 
       // make exploration transform
       tf::Stamped<tf::Pose> robotPose;
@@ -799,8 +819,8 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
 }
 
 /*
- * checks if a given point is a frontier cell. a frontier cell is a cell in the occupancy grid,
- * that seperates known from unknown space. therefor the cell has to be free but at least three
+ * checks if a given point is a frontier cell. a frontier cell is a cell in the occupancy grid
+ * that seperates known from unknown space. Therefore the cell has to be free but at least three
  * of its neighbours need to be unknown
  */
 bool HectorExplorationPlanner::isFrontier(int point){
@@ -835,19 +855,13 @@ bool HectorExplorationPlanner::isFrontier(int point){
 
 
 void HectorExplorationPlanner::resetMaps(){
-
-  for(unsigned int i = 0; i < mapPoints; ++i){
-    explorationTrans[i] = INT_MAX;
-    obstacleTrans[i] = INT_MAX;
-    isGoal[i] = false;
-  }
+  std::fill_n(explorationTrans, mapPoints, INT_MAX);
+  std::fill_n(obstacleTrans, mapPoints, INT_MAX);
+  std::fill_n(isGoal, mapPoints, false);
 }
 
 void HectorExplorationPlanner::clearFrontiers(){
-
-  for(unsigned int i = 0; i < mapPoints; ++i){
-    frontierMap[i] = 0;
-  }
+  std::fill_n(frontierMap, mapPoints, 0);
 }
 
 inline bool HectorExplorationPlanner::isValid(int point){
@@ -858,7 +872,7 @@ bool HectorExplorationPlanner::isFree(int point){
 
   if(isValid(point)){
     // if a point is not inscribed_inflated_obstacle, leathal_obstacle or no_information, its free
-    if(useInflatedObs){
+    if(p_use_inflated_obs_){
       if(occupancyGrid[point] < costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         return true;
       }
@@ -868,7 +882,7 @@ bool HectorExplorationPlanner::isFree(int point){
       }
     }
 
-    if(planInUnknown){
+    if(p_plan_in_unknown_){
       if(occupancyGrid[point] == costmap_2d::NO_INFORMATION){
         return true;
       }
@@ -895,8 +909,8 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
   double dx = robotPoseMsg.pose.position.x - wfx;
   double dy = robotPoseMsg.pose.position.y - wfy;
 
-  if ( (dx*dx) + (dy*dy) < (dist_for_goal_reached*dist_for_goal_reached)) {
-    ROS_DEBUG("[hector_global_planner]: frontier is within the squared range of: %f", dist_for_goal_reached);
+  if ( (dx*dx) + (dy*dy) < (p_dist_for_goal_reached_*p_dist_for_goal_reached_)) {
+    ROS_DEBUG("[hector_global_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);
     return true;
   }
   return false;
@@ -916,7 +930,7 @@ bool HectorExplorationPlanner::isSameFrontier(int frontier_point1, int frontier_
   double dx = wfx1 - wfx2;
   double dy = wfy1 - wfy2;
 
-  if((dx*dx) + (dy*dy) < (same_frontier_dist*same_frontier_dist)){
+  if((dx*dx) + (dy*dy) < (p_same_frontier_dist_*p_same_frontier_dist_)){
     return true;
   }
   return false;
@@ -925,8 +939,8 @@ bool HectorExplorationPlanner::isSameFrontier(int frontier_point1, int frontier_
 
 inline unsigned int HectorExplorationPlanner::cellDanger(int point){
   unsigned int danger = 0;
-  if((int)obstacleTrans[point] <= minObstacleDist){
-    danger = alpha * std::pow(minObstacleDist - obstacleTrans[point],2);
+  if((int)obstacleTrans[point] <= p_min_obstacle_dist_){
+    danger = p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacleTrans[point],2);
   }
   return danger;
 }
@@ -989,7 +1003,7 @@ double HectorExplorationPlanner::getYawToUnknown(int point){
 
 unsigned int HectorExplorationPlanner::angleDanger(float angle){
   float angle_fraction = std::pow(angle,3);///M_PI;
-  unsigned int result = static_cast<unsigned int>(goal_angle_penalty * angle_fraction);
+  unsigned int result = static_cast<unsigned int>(p_goal_angle_penalty_ * angle_fraction);
   return result;
 }
 
