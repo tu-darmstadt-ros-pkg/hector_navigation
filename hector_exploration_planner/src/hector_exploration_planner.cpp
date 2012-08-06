@@ -28,6 +28,13 @@
 
 #include "hector_exploration_planner.h"
 
+#include <visualization_msgs/Marker.h>
+#include <visualization_msgs/MarkerArray.h>
+#include <hector_nav_msgs/GetRobotTrajectory.h>
+
+#define STRAIGHT_COST 3
+#define DIAGONAL_COST 4
+
 using namespace hector_exploration_planner;
 
 HectorExplorationPlanner::HectorExplorationPlanner()

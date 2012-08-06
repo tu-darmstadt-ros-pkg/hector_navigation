@@ -30,25 +30,9 @@
 #define HECTOR_EXPLORATION_PLANNER_H___
 
 #include <ros/ros.h>
-#include <ros/time.h>
-#include <geometry_msgs/PoseStamped.h>
-#include <geometry_msgs/Point.h>
-#include <vector>
 #include <costmap_2d/costmap_2d.h>
 #include <costmap_2d/costmap_2d_ros.h>
-#include <string>
-#include <ros/exceptions.h>
-#include <math.h>
-#include <tf/tf.h>
-#include <visualization_msgs/Marker.h>
-#include <visualization_msgs/MarkerArray.h>
-#include <boost/lexical_cast.hpp>
-#include <hector_nav_msgs/GetRobotTrajectory.h>
-#include <stdlib.h>
-
-#define STRAIGHT_COST 3
-#define DIAGONAL_COST 4
-#define _USE_MATH_DEFINES
+#include <geometry_msgs/PoseStamped.h>
 
 namespace hector_exploration_planner{
 
