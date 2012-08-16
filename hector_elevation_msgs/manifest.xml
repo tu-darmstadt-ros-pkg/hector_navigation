@@ -1,0 +1,15 @@
+<package>
+  <description brief="hector_elevation_msgs">
+
+     elevation_msgs
+
+  </description>
+  <author>graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <depend package="std_msgs"/>
+  <depend package="geometry_msgs"/>
+  <depend package="nav_msgs"/>
+</package>
+
+

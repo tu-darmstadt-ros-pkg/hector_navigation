@@ -1,0 +1,22 @@
+<package>
+  <description brief="hector_elevation_visualization">
+
+     hector_elevation_visualization
+
+  </description>
+  <author>graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_elevation_visualization</url>
+  <depend package="visualization_msgs"/>
+  <depend package="hector_elevation_msgs"/>
+  <depend package="tf"/>
+  <depend package="common_rosdeps" />
+  <depend package="hector_map_tools"/>
+  <depend package="dynamic_reconfigure" />
+  
+  <rosdep name="eigen" />
+
+</package>
+
+

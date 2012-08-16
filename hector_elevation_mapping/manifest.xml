@@ -1,0 +1,24 @@
+<package>
+  <description brief="hector_elevation_mapping">
+
+     elevation_mapping
+
+  </description>
+  <author>Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <depend package="geometry_msgs"/>
+  <depend package="pcl"/>
+  <depend package="pcl_ros"/>
+  <depend package="sensor_msgs"/>
+  <depend package="hector_elevation_msgs"/>
+  <depend package="tf"/>
+  <depend package="hector_map_tools"/>
+  <depend package="roscpp"/>
+  <depend package="nodelet"/>
+  <export>
+    <nodelet plugin="${prefix}/nodelet_plugins.xml" />
+  </export>
+</package>
+
+

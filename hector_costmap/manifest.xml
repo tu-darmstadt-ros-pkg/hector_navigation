@@ -1,0 +1,21 @@
+<package>
+  <description brief="hector_costmap">
+
+     costmap calculation
+
+  </description>
+  <author>Graber</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <depend package="geometry_msgs"/>
+  <depend package="pcl"/>
+  <depend package="pcl_ros"/>
+  <depend package="sensor_msgs"/>
+  <depend package="opencv2"/>
+  <depend package="hector_elevation_msgs"/>
+  <depend package="cv_bridge"/>
+  <depend package="hector_map_tools"/>
+  <depend package="dynamic_reconfigure" />
+</package>
+
+
