@@ -1,0 +1,2 @@
+rosbuild_add_executable(hector_elevation_visualization hector_elevation_visualization_node.cpp hector_elevation_visualization.cpp hector_elevation_visualization.h)
+

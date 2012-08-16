@@ -1,0 +1,25 @@
+<package>
+  <description brief="hector_exploration_planner is a planner that can both plan paths to goal points and generate goals to explore unknown environments">
+
+     hector_exploration_planner is a planner that can both plan paths to goal points and generate goals to explore unknown environments
+
+  </description>
+  <author>Mark Sollweck, Stefan Kohlbrecher</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_exploration_planner</url>
+  <depend package="roscpp"/>
+  <depend package="geometry_msgs"/>
+  <depend package="costmap_2d"/>
+  <depend package="nav_core"/>
+  <depend package="pluginlib"/>
+  <depend package="nav_msgs"/>
+  <depend package="rosconsole"/>
+  <depend package="hector_nav_msgs"/>
+
+  <export>
+    <nav_core plugin="${prefix}/hector_exploration_base_global_planner_plugin.xml" />
+  </export>
+</package>
+
+
