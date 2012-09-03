@@ -1,10 +1,10 @@
 <package>
-  <description brief="hector_costmap">
+  <description brief="hector_costmap provides a 2D occupancy grid map containing all untraversable obstacles.  It fuses 2.5D elevation map (provided by hector_elevation_mapping) with the 2D occupancy grid map (provided by hector_slam) for calculating the 2D costmap">
 
-     costmap calculation
+     hector_costmap provides a 2D occupancy grid map containing all untraversable obstacles.  It fuses 2.5D elevation map (provided by hector_elevation_mapping) with the 2D occupancy grid map (provided by hector_slam) for calculating the 2D costmap
 
   </description>
-  <author>Graber</author>
+  <author>Thorsten Graber</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <depend package="geometry_msgs"/>

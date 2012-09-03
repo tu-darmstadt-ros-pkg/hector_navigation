@@ -1,10 +1,10 @@
 <package>
-  <description brief="hector_elevation_msgs">
+  <description brief="elevation_msgs contains messages for hector_elevation_mapping and hector_elevation_visualization packages">
 
-     elevation_msgs
+     elevation_msgs contains messages for hector_elevation_mapping and hector_elevation_visualization packages 
 
   </description>
-  <author>graber</author>
+  <author>Thorsten Graber</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <depend package="std_msgs"/>

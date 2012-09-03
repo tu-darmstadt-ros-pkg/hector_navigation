@@ -9,7 +9,6 @@
 
 #include <opencv/cv.h>
 #include <opencv/highgui.h>
-//#include <opencv2/imgproc/imgproc.hpp>
 
 #include <cv_bridge/cv_bridge.h>
 
@@ -27,14 +26,47 @@
 class CostMapCalculation{
 
 public:
+    /// Default constructor
     CostMapCalculation();
+
+    /// Default deconstructor
     ~CostMapCalculation();
 
+    /// updateMapParamsCallback updates the map meta information if someone has changed it
+    /**
+    * \param [in] map_meta_data map meta information like grid resolution or origin
+    */
     void updateMapParamsCallback(const nav_msgs::MapMetaData& map_meta_data);
+
+    /// callbackElevationMap get called if a new elevation map is avaible
+    /**
+    * \param [in] elevation_map_msg stores elevation map data as a 2.5D grid
+    */
     void callbackElevationMap(const hector_elevation_msgs::ElevationGridConstPtr& elevation_map_msg);
+
+    /// callbackGridMap get called if a new 2D grid map is avaible
+    /**
+    * \param [in] grid_map_msg stores 2D grid map data
+    */
     void callbackGridMap(const nav_msgs::OccupancyGridConstPtr& grid_map_msg);
+
+    /// sysMessageCallback This function listen to system messages
+    /**
+    * \param [in] string parameter contains system messages, like "reset"
+    */
     void sysMessageCallback(const std_msgs::String& string);
+
+    /// dynRecParamCallback This function get called if new parameters has been set with the dynamic reconfigure dialog
+    /**
+    * \param [in] config contains current parameters
+    * \param [in] level is unused
+    */
     void dynRecParamCallback(hector_costmap::CostMapCalculationConfig &config, uint32_t level);
+
+    /// timerCallback publishes periodically a new 2D cost map
+    /**
+    * \param [in] event is unused
+    */
     void timerCallback(const ros::TimerEvent& event);
 
 private:
@@ -74,7 +106,19 @@ private:
 
     Eigen::Vector2i min_index, max_index;
 
-    bool calculateCostMap(char fuse_grid_map);
+    /// This function fuses the elevation and grid map und calculates the 2d cost map
+    /**
+    * \param [in] map_level set the method to calculate the 2d cost map
+    * \retval true if everything went fine, otherwise false
+    */
+    bool calculateCostMap(char map_level);
+
+    /// Computes the indices for the bounding box thats get updated
+    /**
+    * \param [in] time Current time is needed
+    * \param [in] update_radius determines the size of the bounding box in [m]
+    * \retval true if everything went fine, otherwise false
+    */
     bool computeWindowIndices(ros::Time time,double update_radius);
 };
 
