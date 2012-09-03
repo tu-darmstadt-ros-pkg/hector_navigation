@@ -21,11 +21,29 @@
 class ElevationVisualization{
 
 public:
+    /// Default constructor
     ElevationVisualization();
+
+    /// Default deconstructor
     ~ElevationVisualization();
 
+    /// dynRecParamCallback This function get called if new parameters has been set with the dynamic reconfigure dialog
+    /**
+    * \param [in] config contains current parameters
+    * \param [in] level is unused
+    */
     void dynRecParamCallback(hector_elevation_visualization::ElevationVisualizationConfig &config, uint32_t level);
+
+    /// sysMessageCallback This function listen to system messages
+    /**
+    * \param [in] string parameter contains system messages, like "reset"
+    */
     void sys_message_callback(const std_msgs::String& string);
+
+    /// map_callback get called if a new elevation map is avaible
+    /**
+    * \param [in] elevation_map_msg stores elevation map data as a 2.5D grid
+    */
     void map_callback(const hector_elevation_msgs::ElevationGrid& elevation_map);
 
 private:
@@ -45,7 +63,22 @@ private:
 
     int max_height_levels;
 
-    double max_height;
+    double min_height,max_height,color_factor;
 
+    bool use_color_map;
+
+    std_msgs::ColorRGBA marker_color;
+
+    /// visualize_map calculates visualization markers to vizualize the elevation map in rviz
+    /**
+    * \param [in] elevation_map elevation map data as a 2.5D grid
+    * \param [in] local_map_transform is used for deducing the robot's position
+    */
     void visualize_map(const hector_elevation_msgs::ElevationGrid& elevation_map, tf::StampedTransform local_map_transform);
+
+    /// heightMapColor calculates the marker color as a function of height
+    /**
+    * \param [in] h The height in [m]
+    */
+    static std_msgs::ColorRGBA heightMapColor(double h);
 };

@@ -8,7 +8,20 @@
 ElevationVisualization::ElevationVisualization(): nHandle("~")
 {
     nHandle.param("max_height_levels",max_height_levels,10); //[cell]
-    nHandle.param("max_height",max_height,1.0); //[m]
+    nHandle.param("min_height",min_height,-1.0); //[m]
+    nHandle.param("max_height",max_height,1.5); //[m]
+    nHandle.param("color_factor",color_factor,0.8); //[]
+    double r, g, b, a;
+    nHandle.param("color/r", r, 0.0);
+    nHandle.param("color/g", g, 0.0);
+    nHandle.param("color/b", b, 1.0);
+    nHandle.param("color/a", a, 1.0);
+    marker_color.r = r;
+    marker_color.g = g;
+    marker_color.b = b;
+    marker_color.a = a;
+    nHandle.param("use_color_map", use_color_map, true); //[]
+
     nHandle.param("elevation_map_frame_id", elevation_map_frame_id,std::string("/elevation_map_local"));
     nHandle.param("paramSysMsgTopic", sys_msg_topic, std::string("/syscommand"));
 
@@ -30,7 +43,10 @@ ElevationVisualization::~ElevationVisualization()
 void ElevationVisualization::dynRecParamCallback(hector_elevation_visualization::ElevationVisualizationConfig &config, uint32_t level)
 {
     max_height_levels = config.max_height_levels;
-    max_height = max_height;
+    min_height = config.min_height;
+    max_height = config.max_height;
+    color_factor = config.color_factor;
+    use_color_map = config.use_color_map;
 
     if(std::strcmp(elevation_map_frame_id.c_str(),(config.elevation_map_frame_id).c_str()))
     {
@@ -71,6 +87,12 @@ void ElevationVisualization::visualize_map(const hector_elevation_msgs::Elevatio
                 cube_center.z = (elevation_map.data[MAP_IDX(elevation_map.info.width, index_x, index_y)]-elevation_map.info.zero_elevation)*elevation_map.info.resolution_z;
                 current_height_level = max_height_levels/2+(int)round(std::min(std::max((double)cube_center.z+local_map_transform.getOrigin().z(), -(double)max_height), (double)max_height)*(double)max_height_levels/((double)max_height*2.0f));
                 map_marker_array_msg.markers[current_height_level].points.push_back(cube_center);
+
+                if(use_color_map)
+                {
+                    double h = (1.0 - std::min(std::max((cube_center.z-min_height)/ (max_height - min_height), 0.0), 1.0)) *color_factor;
+                    map_marker_array_msg.markers[current_height_level].colors.push_back(heightMapColor(h));
+                }
             }
         }
     }
@@ -88,10 +110,7 @@ void ElevationVisualization::visualize_map(const hector_elevation_msgs::Elevatio
         map_marker_array_msg.markers[i].scale.x = elevation_map.info.resolution_xy;
         map_marker_array_msg.markers[i].scale.y = elevation_map.info.resolution_xy;
         map_marker_array_msg.markers[i].scale.z = elevation_map.info.resolution_z;
-        map_marker_array_msg.markers[i].color.r = (double)i/(double)max_height_levels;
-        map_marker_array_msg.markers[i].color.g = 0.0f - (double)i/(double)max_height_levels;
-        map_marker_array_msg.markers[i].color.b = 0.0f;
-        map_marker_array_msg.markers[i].color.a = 0.5f;
+        map_marker_array_msg.markers[i].color = marker_color;
 
         if (map_marker_array_msg.markers[i].points.size() > 0)
             map_marker_array_msg.markers[i].action = visualization_msgs::Marker::ADD;
@@ -154,6 +173,56 @@ void ElevationVisualization::sys_message_callback(const std_msgs::String& string
         }
         map_marker_array_msg.markers.clear();
     }
+}
+
+std_msgs::ColorRGBA ElevationVisualization::heightMapColor(double h)
+{
+
+    std_msgs::ColorRGBA color;
+    color.a = 1.0;
+    // blend over HSV-values (more colors)
+
+    double s = 1.0;
+    double v = 1.0;
+
+    h -= floor(h);
+    h *= 6;
+    int i;
+    double m, n, f;
+
+    i = floor(h);
+    f = h - i;
+    if (!(i & 1))
+        f = 1 - f; // if i is even
+    m = v * (1 - s);
+    n = v * (1 - s * f);
+
+    switch (i) {
+    case 6:
+    case 0:
+        color.r = v; color.g = n; color.b = m;
+        break;
+    case 1:
+        color.r = n; color.g = v; color.b = m;
+        break;
+    case 2:
+        color.r = m; color.g = v; color.b = n;
+        break;
+    case 3:
+        color.r = m; color.g = n; color.b = v;
+        break;
+    case 4:
+        color.r = n; color.g = m; color.b = v;
+        break;
+    case 5:
+        color.r = v; color.g = m; color.b = n;
+        break;
+    default:
+        color.r = 1; color.g = 0.5; color.b = 0.5;
+        break;
+    }
+
+    return color;
 }
 
 
