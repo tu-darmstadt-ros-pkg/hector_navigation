@@ -44,17 +44,17 @@ void ElevationMapping::onInit()
     local_elevation_map.info = elevation_map_meta;
     global_elevation_map.info = elevation_map_meta;
 
-    grid_map_meta.origin.position.x = elevation_map_meta.origin.position.x;
-    grid_map_meta.origin.position.y = elevation_map_meta.origin.position.y;
-    grid_map_meta.origin.position.z = elevation_map_meta.origin.position.z;
+    map_meta.origin.position.x = elevation_map_meta.origin.position.x;
+    map_meta.origin.position.y = elevation_map_meta.origin.position.y;
+    map_meta.origin.position.z = elevation_map_meta.origin.position.z;
 
-    grid_map_meta.origin.orientation.x = elevation_map_meta.origin.orientation.x;
-    grid_map_meta.origin.orientation.y = elevation_map_meta.origin.orientation.y;
-    grid_map_meta.origin.orientation.z = elevation_map_meta.origin.orientation.z;
-    grid_map_meta.origin.orientation.w = elevation_map_meta.origin.orientation.w;
+    map_meta.origin.orientation.x = elevation_map_meta.origin.orientation.x;
+    map_meta.origin.orientation.y = elevation_map_meta.origin.orientation.y;
+    map_meta.origin.orientation.z = elevation_map_meta.origin.orientation.z;
+    map_meta.origin.orientation.w = elevation_map_meta.origin.orientation.w;
 
-    grid_map_meta.resolution = elevation_map_meta.resolution_xy;
-    world_map_transform.setTransforms(grid_map_meta);
+    map_meta.resolution = elevation_map_meta.resolution_xy;
+    world_map_transform.setTransforms(map_meta);
 
     nPrivateHandle.param("map_frame_id", map_frame_id,std::string("map"));
     nPrivateHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_footprint"));
@@ -103,8 +103,6 @@ ElevationMapping::~ElevationMapping()
 void ElevationMapping::timerCallback(const ros::TimerEvent& event)
 {
     tf::StampedTransform local_map_transform;
-
-
 
     // get local map transform
     try
@@ -190,29 +188,29 @@ void ElevationMapping::sysMessageCallback(const std_msgs::String& string)
     }
 }
 
-void ElevationMapping::updateParamsCallback(const nav_msgs::MapMetaData& grid_map_meta_data)
+void ElevationMapping::updateParamsCallback(const nav_msgs::MapMetaData& map_meta_data)
 {
     ROS_DEBUG("HectorEM: received new grid map meta data -> overwrite old parameters");
 
     // set new parameters
-    elevation_map_meta.width = grid_map_meta_data.width;
-    elevation_map_meta.height = grid_map_meta_data.height;
-    elevation_map_meta.resolution_xy = grid_map_meta_data.resolution;
+    elevation_map_meta.width = map_meta_data.width;
+    elevation_map_meta.height = map_meta_data.height;
+    elevation_map_meta.resolution_xy = map_meta_data.resolution;
 
-    elevation_map_meta.origin.position.x = grid_map_meta_data.origin.position.x;
-    elevation_map_meta.origin.position.y = grid_map_meta_data.origin.position.y;
-    elevation_map_meta.origin.position.z = grid_map_meta_data.origin.position.z;
+    elevation_map_meta.origin.position.x = map_meta_data.origin.position.x;
+    elevation_map_meta.origin.position.y = map_meta_data.origin.position.y;
+    elevation_map_meta.origin.position.z = map_meta_data.origin.position.z;
 
-    elevation_map_meta.origin.orientation.x = grid_map_meta_data.origin.orientation.x;
-    elevation_map_meta.origin.orientation.y = grid_map_meta_data.origin.orientation.y;
-    elevation_map_meta.origin.orientation.z = grid_map_meta_data.origin.orientation.z;
-    elevation_map_meta.origin.orientation.w = grid_map_meta_data.origin.orientation.w;
+    elevation_map_meta.origin.orientation.x = map_meta_data.origin.orientation.x;
+    elevation_map_meta.origin.orientation.y = map_meta_data.origin.orientation.y;
+    elevation_map_meta.origin.orientation.z = map_meta_data.origin.orientation.z;
+    elevation_map_meta.origin.orientation.w = map_meta_data.origin.orientation.w;
 
     local_elevation_map.info = elevation_map_meta;
     global_elevation_map.info = elevation_map_meta;
 
-    grid_map_meta = grid_map_meta_data;
-    world_map_transform.setTransforms(grid_map_meta);
+    map_meta = map_meta_data;
+    world_map_transform.setTransforms(map_meta);
 
     // allocate memory and set default values
     local_elevation_map.data = std::vector<int16_t>(elevation_map_meta.width * elevation_map_meta.height,(int16_t)-elevation_map_meta.zero_elevation);

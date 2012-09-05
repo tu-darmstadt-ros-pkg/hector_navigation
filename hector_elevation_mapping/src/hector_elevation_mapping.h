@@ -26,12 +26,36 @@ namespace hector_elevation_mapping
 class ElevationMapping : public nodelet::Nodelet{
 
 public:
+    /// Default plugin constructor
     virtual void onInit();
+
+    /// Default deconstructor
     ~ElevationMapping();
 
+    /// cloudCallback get called if a new 3D point cloud is avaible
+    /**
+    * \param [in] pointcloud2_sensor_msg contains the 3D point cloud
+    */
     void cloudCallback(const sensor_msgs::PointCloud2ConstPtr& pointcloud2_sensor_msg);
+
+    /// sysMessageCallback This function listen to system messages
+    /**
+    * \param [in] string parameter contains system messages, like "reset"
+    */
     void sysMessageCallback(const std_msgs::String& string);
-    void updateParamsCallback(const nav_msgs::MapMetaData& grid_map_meta_data);
+
+
+    /// updateMapParamsCallback updates the map meta information if someone has changed it
+    /**
+    * \param [in] map_meta_data map meta information like grid resolution or origin
+    */
+    void updateParamsCallback(const nav_msgs::MapMetaData& map_meta_data);
+
+
+    /// timerCallback publishes periodically a height pose update
+    /**
+    * \param [in] event is unused
+    */
     void timerCallback(const ros::TimerEvent& event);
 
 private:
@@ -59,7 +83,7 @@ private:
     hector_elevation_msgs::ElevationGrid global_elevation_map;
     std::vector<double> cell_variance;
 
-    nav_msgs::MapMetaData grid_map_meta;
+    nav_msgs::MapMetaData map_meta;
 
     double sensor_variance;
     double max_observable_distance;

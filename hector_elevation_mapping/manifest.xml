@@ -1,10 +1,10 @@
 <package>
-  <description brief="hector_elevation_mapping">
+  <description brief="hector_elevation_mapping advertises pointclouds and generates a local and/or global 2.5D elevation map">
 
-     elevation_mapping
+     hector_elevation_mapping advertises pointclouds and generates a local and/or global 2.5D elevation map
 
   </description>
-  <author>Graber</author>
+  <author>Thorsten Graber</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <depend package="geometry_msgs"/>

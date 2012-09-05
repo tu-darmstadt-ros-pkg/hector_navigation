@@ -6,4 +6,6 @@
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
 
+rosbuild_add_executable(ElevationMapping hector_elevation_mapping_node.cpp)
+
 rosbuild_add_library(ElevationMapping hector_elevation_mapping.h hector_elevation_mapping.cpp)
