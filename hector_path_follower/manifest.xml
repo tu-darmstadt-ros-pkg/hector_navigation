@@ -12,6 +12,10 @@
   <depend package="nav_msgs"/>
   <depend package="tf"/>
 
+  <export>
+    <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -Wl,-rpath,${prefix}/lib -lhector_path_follower"/>
+  </export>
+
 </package>
 
 

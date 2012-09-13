@@ -48,7 +48,7 @@ namespace pose_follower {
     node_private.param("tolerance_rot", tolerance_rot_, 0.04);
     node_private.param("tolerance_timeout", tolerance_timeout_, 0.5);
 
-    node_private.param("holonomic", holonomic_, true);
+    node_private.param("holonomic", holonomic_, false);
 
     node_private.param("samples", samples_, 10);
 
