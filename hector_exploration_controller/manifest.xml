@@ -1,0 +1,16 @@
+<package>
+  <description brief="hector_exploration_controller">
+
+     hector_exploration_controller
+
+  </description>
+  <author>stefan</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_exploration_controller</url>
+  <depend package="hector_path_follower"/>
+  <depend package="hector_nav_msgs"/>
+
+</package>
+
+
