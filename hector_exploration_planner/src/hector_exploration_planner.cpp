@@ -282,6 +282,8 @@ void HectorExplorationPlanner::setupMapData()
   if ((this->map_width_ != costmap_ros_->getSizeInCellsX()) || (this->map_height_ != costmap_ros_->getSizeInCellsY())){
     this->deleteMapData();
 
+    costmap_ros_->getCostmapCopy(costmap_);
+
     map_width_ = costmap_.getSizeInCellsX();
     map_height_ = costmap_.getSizeInCellsY();
     num_map_cells_ = map_width_ * map_height_;
@@ -295,7 +297,7 @@ void HectorExplorationPlanner::setupMapData()
     resetMaps();
   }
 
-  costmap_ros_->getCostmapCopy(costmap_);
+
   occupancy_grid_array_ = costmap_.getCharMap();
 }
 
