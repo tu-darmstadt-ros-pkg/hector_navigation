@@ -1,0 +1,16 @@
+<package>
+  <description brief="hector_exploration_node is a node that provides exploration plans via a service server">
+
+     hector_exploration_node is a node that provides exploration plans via a service server
+
+  </description>
+  <author>Stefan Kohlbrecher</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_exploration_node</url>
+  <depend package="hector_exploration_planner"/>
+  <depend package="hector_nav_msgs"/>
+
+</package>
+
+
