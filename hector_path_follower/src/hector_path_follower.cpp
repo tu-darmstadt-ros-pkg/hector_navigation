@@ -122,7 +122,7 @@ namespace pose_follower {
 
     //get the current pose of the robot in the fixed frame
     tf::Stamped<tf::Pose> robot_pose;
-    if(this->getRobotPose(robot_pose)){
+    if(!this->getRobotPose(robot_pose)){
       ROS_ERROR("Can't get robot pose");
       geometry_msgs::Twist empty_twist;
       cmd_vel = empty_twist;
@@ -389,11 +389,13 @@ namespace pose_follower {
     }
     // check global_pose timeout
 
+    /*
     if (current_time.toSec() - global_pose.stamp_.toSec() > transform_tolerance_) {
       ROS_WARN_THROTTLE(1.0, "Costmap2DROS transform timeout. Current time: %.4f, global_pose stamp: %.4f, tolerance: %.4f",
           current_time.toSec() ,global_pose.stamp_.toSec() ,transform_tolerance_);
       return false;
     }
+    */
 
 
     return true;
