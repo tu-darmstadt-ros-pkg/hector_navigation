@@ -53,14 +53,12 @@ public:
   {
     hector_nav_msgs::GetRobotTrajectory srv_exploration_plan;
 
-    /*
     if (exploration_plan_service_client_.call(srv_exploration_plan)){
       ROS_INFO("Generated exploration path with %u poses", (unsigned int)srv_exploration_plan.response.trajectory.poses.size());
       path_follower_.setPlan(srv_exploration_plan.response.trajectory.poses);
     }else{
       ROS_WARN("Service call for exploration service failed");
     }
-    */
   }
 
   void timerCmdVelGeneration(const ros::TimerEvent& e)
