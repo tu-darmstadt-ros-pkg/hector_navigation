@@ -43,6 +43,9 @@ public:
     path_follower_.initialize(&tfl_);
 
     exploration_plan_generation_timer_ = nh.createTimer(ros::Duration(15.0), &SimpleExplorationController::timerPlanExploration, this, false );
+    cmd_vel_generator_timer_ = nh.createTimer(ros::Duration(0.1), &SimpleExplorationController::timerCmdVelGeneration, this, false );
+
+    vel_pub_ = nh.advertise<geometry_msgs::Twist>("cmd_vel", 10);
 
   }
 
@@ -50,20 +53,34 @@ public:
   {
     hector_nav_msgs::GetRobotTrajectory srv_exploration_plan;
 
+    /*
     if (exploration_plan_service_client_.call(srv_exploration_plan)){
       ROS_INFO("Generated exploration path with %u poses", (unsigned int)srv_exploration_plan.response.trajectory.poses.size());
+      path_follower_.setPlan(srv_exploration_plan.response.trajectory.poses);
     }else{
       ROS_WARN("Service call for exploration service failed");
     }
+    */
+  }
+
+  void timerCmdVelGeneration(const ros::TimerEvent& e)
+  {
+    geometry_msgs::Twist twist;
+    path_follower_.computeVelocityCommands(twist);
+    vel_pub_.publish(twist);
   }
 
 
 protected:
   ros::ServiceClient exploration_plan_service_client_;
-  tf::TransformListener tfl_;
-  pose_follower::HectorPathFollower path_follower_;
-  ros::Timer exploration_plan_generation_timer_;
+  ros::Publisher vel_pub_;
 
+  tf::TransformListener tfl_;
+
+  pose_follower::HectorPathFollower path_follower_;
+
+  ros::Timer exploration_plan_generation_timer_;
+  ros::Timer cmd_vel_generator_timer_;
 };
 
 int main(int argc, char **argv) {
