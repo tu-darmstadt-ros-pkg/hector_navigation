@@ -45,6 +45,8 @@ public:
     planner_->initialize("hector_exploration_planner",costmap_2d_ros_);
 
     exploration_plan_service_server_ = nh.advertiseService("get_exploration_path", &SimpleExplorationPlanner::explorationServiceCallback, this);
+
+    exploration_plan_pub_ = nh.advertise<nav_msgs::Path>("exploration_path",2);
   }
 
   bool explorationServiceCallback(hector_nav_msgs::GetRobotTrajectory::Request  &req,
@@ -58,6 +60,13 @@ public:
       geometry_msgs::PoseStamped pose;
       tf::poseStampedTFToMsg(robot_pose_tf, pose);
       planner_->doExploration(pose, res.trajectory.poses);
+      res.trajectory.header.frame_id = "map";
+      res.trajectory.header.stamp = ros::Time::now();
+
+      if (exploration_plan_pub_.getNumSubscribers() > 0)
+      {
+        exploration_plan_pub_.publish(res.trajectory);
+      }
 
       return true;
     }
@@ -65,6 +74,7 @@ public:
 protected:
   hector_exploration_planner::HectorExplorationPlanner* planner_;
   ros::ServiceServer exploration_plan_service_server_;
+  ros::Publisher exploration_plan_pub_;
   costmap_2d::Costmap2DROS* costmap_2d_ros_;
   tf::TransformListener tfl_;
 

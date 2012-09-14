@@ -20,3 +20,6 @@ global_costmap:
   publish_frequency: 0.1
   static_map: true
   rolling_window: false
+
+  #Investigate what this actually does
+  cost_scaling_factor: 10.0

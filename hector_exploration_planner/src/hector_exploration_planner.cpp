@@ -145,6 +145,8 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   ROS_INFO("[global_planner] exploration: starting exploration");
 
+  this->setupMapData();
+
   // setup maps and goals
 
   resetMaps();
@@ -279,10 +281,10 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
 
 void HectorExplorationPlanner::setupMapData()
 {
+  costmap_ros_->getCostmapCopy(costmap_);
+
   if ((this->map_width_ != costmap_ros_->getSizeInCellsX()) || (this->map_height_ != costmap_ros_->getSizeInCellsY())){
     this->deleteMapData();
-
-    costmap_ros_->getCostmapCopy(costmap_);
 
     map_width_ = costmap_.getSizeInCellsX();
     map_height_ = costmap_.getSizeInCellsY();
