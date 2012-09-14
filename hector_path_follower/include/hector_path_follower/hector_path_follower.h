@@ -66,7 +66,7 @@ namespace pose_follower {
       bool getRobotPose(tf::Stamped<tf::Pose>& global_pose) const;
 
       tf::TransformListener* tf_;
-      ros::Publisher vel_pub_;
+
       double K_trans_, K_rot_, tolerance_trans_, tolerance_rot_;
       double tolerance_timeout_;
       double max_vel_lin_, max_vel_th_;

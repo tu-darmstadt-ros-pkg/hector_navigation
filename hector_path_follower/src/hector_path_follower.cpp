@@ -66,8 +66,8 @@ namespace pose_follower {
     node_private.param("robot_base_frame", p_robot_base_frame_, std::string("base_link"));
     node_private.param("global_frame", p_global_frame_, std::string("map"));
 
-    ros::NodeHandle node;
-    vel_pub_ = node.advertise<geometry_msgs::Twist>("cmd_vel", 10);
+    //ros::NodeHandle node;
+    //vel_pub_ = node.advertise<geometry_msgs::Twist>("cmd_vel", 10);
 
     ROS_DEBUG("Initialized");
   }
@@ -116,6 +116,10 @@ namespace pose_follower {
   */
 
   bool HectorPathFollower::computeVelocityCommands(geometry_msgs::Twist& cmd_vel){
+
+    if (global_plan_.size() == 0)
+      return false;
+
     //get the current pose of the robot in the fixed frame
     tf::Stamped<tf::Pose> robot_pose;
     if(this->getRobotPose(robot_pose)){
@@ -124,6 +128,8 @@ namespace pose_follower {
       cmd_vel = empty_twist;
       return false;
     }
+
+
 
     //we want to compute a velocity command based on our current waypoint
     tf::Stamped<tf::Pose> target_pose;
@@ -313,7 +319,7 @@ namespace pose_follower {
     try{
       if (!global_plan.size() > 0)
       {
-        ROS_ERROR("Recieved plan with zero length");
+        ROS_ERROR("Received plan with zero length");
         return false;
       }
 
@@ -362,7 +368,7 @@ namespace pose_follower {
     tf::Stamped<tf::Pose> robot_pose;
     robot_pose.setIdentity();
     robot_pose.frame_id_ = p_robot_base_frame_;
-    robot_pose.stamp_ = ros::Time();
+    robot_pose.stamp_ = ros::Time(0);
     ros::Time current_time = ros::Time::now(); // save time for checking tf delay later
 
     //get the global pose of the robot
@@ -382,13 +388,13 @@ namespace pose_follower {
       return false;
     }
     // check global_pose timeout
-    /*
+
     if (current_time.toSec() - global_pose.stamp_.toSec() > transform_tolerance_) {
       ROS_WARN_THROTTLE(1.0, "Costmap2DROS transform timeout. Current time: %.4f, global_pose stamp: %.4f, tolerance: %.4f",
           current_time.toSec() ,global_pose.stamp_.toSec() ,transform_tolerance_);
       return false;
     }
-    */
+
 
     return true;
   }
