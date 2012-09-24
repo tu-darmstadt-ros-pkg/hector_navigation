@@ -10,7 +10,7 @@ global_costmap:
               [-0.25, -0.21],
               [0.25, -0.21]]
   inflation_radius: 0.32
-#   transform_tolerance: 0.5
+  #transform_tolerance: 0.5
   inscribed_radius: 0.3
   circumscribed_radius: 0.32
 
