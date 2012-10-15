@@ -1,5 +1,5 @@
 //=================================================================================================
-// Copyright (c) 2012, Mark Sollweck, Stefan Kohlbrecher, TU Darmstadt
+// Copyright (c) 2012, Stefan Kohlbrecher, TU Darmstadt
 // All rights reserved.
 
 // Redistribution and use in source and binary forms, with or without
@@ -26,30 +26,24 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#include "hector_exploration_planner/hector_exploration_base_global_planner_plugin.h"
+#include "hector_path_follower/hector_path_follower.h"
 
-PLUGINLIB_DECLARE_CLASS(hector_exploration_planner, HectorExplorationBaseGlobalPlannerPlugin, hector_exploration_planner::HectorExplorationBaseGlobalPlannerPlugin, nav_core::BaseGlobalPlanner);
+#include <ros/ros.h>
+#include <tf/tf.h>
 
-using namespace hector_exploration_planner;
 
 
-HectorExplorationBaseGlobalPlannerPlugin::HectorExplorationBaseGlobalPlannerPlugin()
-{
-  exploration_planner = new HectorExplorationPlanner();
-}
+int main(int argc, char **argv) {
+  ros::init(argc, argv, ROS_PACKAGE_NAME);
 
-HectorExplorationBaseGlobalPlannerPlugin::~HectorExplorationBaseGlobalPlannerPlugin()
-{
-  delete exploration_planner;
-}
+  tf::TransformListener* tfl = new tf::TransformListener();
 
-bool HectorExplorationBaseGlobalPlannerPlugin::makePlan(const geometry_msgs::PoseStamped& start,
-                      const geometry_msgs::PoseStamped& goal, std::vector<geometry_msgs::PoseStamped>& plan)
-{
-  return exploration_planner->makePlan(start, goal, plan);
-}
+  pose_follower::HectorPathFollower pf;
+  pf.initialize(tfl);
 
-void HectorExplorationBaseGlobalPlannerPlugin::initialize(std::string name, costmap_2d::Costmap2DROS* costmap_ros)
-{
-  exploration_planner->initialize(name, costmap_ros);
+  ros::spin();
+
+  delete tfl;
+
+  return 0;
 }

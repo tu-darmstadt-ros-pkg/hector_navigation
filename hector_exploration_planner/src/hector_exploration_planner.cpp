@@ -26,7 +26,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#include "hector_exploration_planner.h"
+#include "hector_exploration_planner/hector_exploration_planner.h"
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -144,6 +144,8 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
 
   ROS_INFO("[global_planner] exploration: starting exploration");
+
+  this->setupMapData();
 
   // setup maps and goals
 
@@ -279,6 +281,8 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
 
 void HectorExplorationPlanner::setupMapData()
 {
+  costmap_ros_->getCostmapCopy(costmap_);
+
   if ((this->map_width_ != costmap_ros_->getSizeInCellsX()) || (this->map_height_ != costmap_ros_->getSizeInCellsY())){
     this->deleteMapData();
 
@@ -295,7 +299,7 @@ void HectorExplorationPlanner::setupMapData()
     resetMaps();
   }
 
-  costmap_ros_->getCostmapCopy(costmap_);
+
   occupancy_grid_array_ = costmap_.getCharMap();
 }
 

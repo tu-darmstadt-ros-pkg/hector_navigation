@@ -1,0 +1,12 @@
+<?xml version="1.0"?>
+
+<launch>
+  
+  <!--launch-prefix="gdb -ex run ++args"-->
+
+  <node pkg="hector_exploration_node" type="exploration_planner_node" name="hector_exploration_node" output="screen">
+
+    <rosparam file="$(find hector_exploration_node)/config/costmap.yaml" command="load" />
+
+  </node>
+</launch>

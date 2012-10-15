@@ -1,0 +1,17 @@
+<package>
+  <description brief="hector_exploration_controller is a simple controller that requests a plan via a service and generates geometry_msgs/Twist commands accordingly to follow this plan">
+
+     hector_exploration_controller is a simple controller that requests a plan via a service and generates geometry_msgs/Twist commands accordingly to follow this plan
+
+  </description>
+  <author>Stefan Kohlbrecher</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_exploration_controller</url>
+  
+  <depend package="hector_path_follower"/>
+  <depend package="hector_nav_msgs"/>
+
+</package>
+
+
