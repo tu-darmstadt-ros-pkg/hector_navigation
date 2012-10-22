@@ -7,7 +7,7 @@
 
 namespace hector_elevation_mapping
 {
-PLUGINLIB_DECLARE_CLASS(hector_elevation_mapping, ElevationMapping, hector_elevation_mapping::ElevationMapping, nodelet::Nodelet);
+PLUGINLIB_DECLARE_CLASS(hector_elevation_mapping, ElevationMapping, hector_elevation_mapping::ElevationMapping, nodelet::Nodelet)
 
 void ElevationMapping::onInit()
 {
@@ -231,6 +231,7 @@ void ElevationMapping::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& poi
 
     // converting PointCloud2 msg format to pcl pointcloud format in order to read the 3d data
     pcl::fromROSMsg(*pointcloud2_sensor_msg, *pointcloud2_sensor_pcl);
+
 
     // transform cloud to /map frame
     try
