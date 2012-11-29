@@ -4,7 +4,7 @@
      hector_exploration_planner is a planner that can both plan paths to goal points and generate goals to explore unknown environments
 
   </description>
-  <author>Mark Sollweck, Stefan Kohlbrecher</author>
+  <author>Mark Sollweck, Stefan Kohlbrecher, Florian Berz</author>
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/hector_exploration_planner</url>

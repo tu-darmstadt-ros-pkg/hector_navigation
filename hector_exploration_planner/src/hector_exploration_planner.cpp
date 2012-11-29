@@ -1,5 +1,5 @@
 //=================================================================================================
-// Copyright (c) 2012, Mark Sollweck, Stefan Kohlbrecher, TU Darmstadt
+// Copyright (c) 2012, Mark Sollweck, Stefan Kohlbrecher, Florian Berz TU Darmstadt
 // All rights reserved.
 
 // Redistribution and use in source and binary forms, with or without
