@@ -71,6 +71,9 @@ public:
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers);
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers);
   bool findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier);
+  
+  float angleDifferenceWall(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal);
+  bool exploreWalls(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &goals);
 
 private:
   /**
