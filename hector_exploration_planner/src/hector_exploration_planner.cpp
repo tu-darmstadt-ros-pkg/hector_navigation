@@ -1,5 +1,5 @@
 //=================================================================================================
-// Copyright (c) 2012, Mark Sollweck, Stefan Kohlbrecher, TU Darmstadt
+// Copyright (c) 2012, Mark Sollweck, Stefan Kohlbrecher, Florian Berz TU Darmstadt
 // All rights reserved.
 
 // Redistribution and use in source and binary forms, with or without
@@ -64,11 +64,11 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   // unknown: 255, obstacle 254, inflated: 253, free: 0
 
   if(initialized_){
-    ROS_ERROR("[global_planner] HectorExplorationPlanner is already initialized_! Please check why initialize() got called twice.");
+    ROS_ERROR("[hector_exploration_planner] HectorExplorationPlanner is already initialized_! Please check why initialize() got called twice.");
     return;
   }
 
-  ROS_INFO("[global_planner] Initializing HectorExplorationPlanner");
+  ROS_INFO("[hector_exploration_planner] Initializing HectorExplorationPlanner");
 
   // initialize costmaps
   this->costmap_ros_ = costmap_ros_in;
@@ -89,7 +89,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
   path_service_client_ = nh.serviceClient<hector_nav_msgs::GetRobotTrajectory>("trajectory");
 
-  ROS_DEBUG("[global_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, p_goal_angle_penalty_:%d , min_frontier_size: %d, p_dist_for_goal_reached_: %f, same_frontier: %f", p_alpha_, p_min_obstacle_dist_, p_plan_in_unknown_, p_use_inflated_obs_, p_goal_angle_penalty_, p_min_frontier_size_,p_dist_for_goal_reached_,p_same_frontier_dist_);
+  ROS_DEBUG("[hector_exploration_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, p_goal_angle_penalty_:%d , min_frontier_size: %d, p_dist_for_goal_reached_: %f, same_frontier: %f", p_alpha_, p_min_obstacle_dist_, p_plan_in_unknown_, p_use_inflated_obs_, p_goal_angle_penalty_, p_min_frontier_size_,p_dist_for_goal_reached_,p_same_frontier_dist_);
   p_min_obstacle_dist_ = p_min_obstacle_dist_ * STRAIGHT_COST;
 
   this->name = name;
@@ -109,7 +109,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   }
 
   // planning
-  ROS_INFO("[global_planner] planning: starting to make a plan to given goal point");
+  ROS_INFO("[hector_exploration_planner] planning: starting to make a plan to given goal point");
 
   // setup maps and goals
   resetMaps();
@@ -137,13 +137,13 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   costmap_.worldToMap(goal.pose.position.x,goal.pose.position.y,mx,my);
   previous_goal_ = costmap_.getIndex(mx,my);
 
-  ROS_INFO("[global_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
+  ROS_INFO("[hector_exploration_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
 }
 
 bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
 
-  ROS_INFO("[global_planner] exploration: starting exploration");
+  ROS_INFO("[hector_exploration_planner] exploration: starting exploration");
 
   this->setupMapData();
 
@@ -161,9 +161,9 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   // search for frontiers
   if(findFrontiers(goals)){
-    ROS_INFO("[global_planner] exploration: found %u frontiers!", (unsigned int)goals.size());
+    ROS_INFO("[hector_exploration_planner] exploration: found %u frontiers!", (unsigned int)goals.size());
   } else {
-    ROS_INFO("[global_planner] exploration: no frontiers have been found! starting inner-exploration");
+    ROS_INFO("[hector_exploration_planner] exploration: no frontiers have been found! starting inner-exploration");
     return doInnerExploration(start,plan);
   }
 
@@ -172,7 +172,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
     return false;
   }
   if(!getTrajectory(start,goals,plan)){
-    ROS_INFO("[global_planner] exploration: could not plan to frontier, starting inner-exploration");
+    ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
     return doInnerExploration(start,plan);
   }
 
@@ -185,12 +185,12 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   }
 
 
-  ROS_INFO("[global_planner] exploration: plan to a frontier has been found! plansize: %u", (unsigned int)plan.size());
+  ROS_INFO("[hector_exploration_planner] exploration: plan to a frontier has been found! plansize: %u", (unsigned int)plan.size());
   return true;
 }
 
 bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
-  ROS_INFO("[global_planner] inner-exploration: starting exploration");
+  ROS_INFO("[hector_exploration_planner] inner-exploration: starting exploration");
 
   // setup maps and goals
 
@@ -205,9 +205,9 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
   // search for frontiers
   if(findInnerFrontier(goals)){
-    ROS_INFO("[global_planner] inner-exploration: found %u inner-frontiers!", (unsigned int)goals.size());
+    ROS_INFO("[hector_exploration_planner] inner-exploration: found %u inner-frontiers!", (unsigned int)goals.size());
   } else {
-    ROS_WARN("[global_planner] inner-exploration: no inner-frontiers have been found! exploration failed!");
+    ROS_WARN("[hector_exploration_planner] inner-exploration: no inner-frontiers have been found! exploration failed!");
     return false;
   }
 
@@ -216,7 +216,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     return false;
   }
   if(!getTrajectory(start,goals,plan)){
-    ROS_WARN("[global_planner] inner-exploration: could not plan to inner-frontier. exploration failed!");
+    ROS_WARN("[hector_exploration_planner] inner-exploration: could not plan to inner-frontier. exploration failed!");
     return false;
   }
 
@@ -235,12 +235,12 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     previous_goal_ = costmap_.getIndex(mx,my);
   }
 
-  ROS_INFO("[global_planner] inner-exploration: plan to an inner-frontier has been found! plansize: %u", (unsigned int)plan.size());
+  ROS_INFO("[hector_exploration_planner] inner-exploration: plan to an inner-frontier has been found! plansize: %u", (unsigned int)plan.size());
   return true;
 }
 
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
-  ROS_INFO("[global_planner] alternative exploration: starting alternative exploration");
+  ROS_INFO("[hector_exploration_planner] alternative exploration: starting alternative exploration");
 
   // setup maps and goals
   resetMaps();
@@ -256,9 +256,9 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
 
   // search for frontiers
   if(findFrontiers(goals,old_frontier)){
-    ROS_INFO("[global_planner] alternative exploration: found %u frontiers!", (unsigned int) goals.size());
+    ROS_INFO("[hector_exploration_planner] alternative exploration: found %u frontiers!", (unsigned int) goals.size());
   } else {
-    ROS_WARN("[global_planner] alternative exploration: no frontiers have been found!");
+    ROS_WARN("[hector_exploration_planner] alternative exploration: no frontiers have been found!");
     return false;
   }
 
@@ -275,8 +275,218 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
   costmap_.worldToMap(this_goal.pose.position.x,this_goal.pose.position.y,mx,my);
   previous_goal_ = costmap_.getIndex(mx,my);
 
-  ROS_INFO("[global_planner] alternative exploration: plan to a frontier has been found! plansize: %u ", (unsigned int)plan.size());
+  ROS_INFO("[hector_exploration_planner] alternative exploration: plan to a frontier has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
+}
+
+float HectorExplorationPlanner::angleDifferenceWall(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
+    // setup start positions
+    unsigned int mxs,mys;
+    costmap_.worldToMap(start.pose.position.x,start.pose.position.y,mxs,mys);
+
+    unsigned int gx,gy;
+    costmap_.worldToMap(goal.pose.position.x,goal.pose.position.y,gx,gy);
+
+    int goal_proj_x = gx-mxs;
+    int goal_proj_y = gy-mys;
+
+    float start_angle = tf::getYaw(start.pose.orientation);
+    float goal_angle = std::atan2(goal_proj_y,goal_proj_x);
+
+    float both_angle = 0;
+    if(start_angle > goal_angle){
+        both_angle = start_angle - goal_angle;
+    } else {
+        both_angle = goal_angle - start_angle;
+    }
+
+    return both_angle;
+}
+
+bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
+
+  //@TODO: Properly set this parameters
+  int startExploreWall = 1;
+
+  ROS_DEBUG("[hector_exploration_planner] wall-follow: exploreWalls");
+	unsigned int mx,my;
+  if(!costmap_.worldToMap(start.pose.position.x, start.pose.position.y, mx, my)){
+    ROS_WARN("[hector_exploration_planner] wall-follow: The start coordinates are outside the costmap!");
+		return false;
+	}
+        int currentPoint=costmap_.getIndex(mx, my);
+        int nextPoint;
+        int oldDirection = -1;
+        int k=0;
+        int loop=0;
+
+        while(k<50){
+            int adjacentPoints [8];
+            getAdjacentPoints(currentPoint, adjacentPoints);
+            int dirPoints [3];
+
+            int minDelta=INT_MAX;
+            int maxDelta=0;
+            int thisDelta;
+            float minAngle=3.1415; //Rad -> 180°
+
+            geometry_msgs::PoseStamped trajPoint;
+            unsigned int gx,gy;
+
+            if(oldDirection==-1){
+                // find robot orientation
+                for ( int i=0; i<8; i++){
+                    costmap_.indexToCells((unsigned int)adjacentPoints[i],gx,gy);
+                    double wx,wy;
+                    costmap_.mapToWorld(gx,gy,wx,wy);
+                    std::string global_frame = costmap_ros_->getGlobalFrameID();
+                    trajPoint.header.frame_id = global_frame;
+                    trajPoint.pose.position.x = wx;
+                    trajPoint.pose.position.y = wy;
+                    trajPoint.pose.position.z = 0.0;
+                    float yaw = angleDifferenceWall(start, trajPoint);
+                    if(yaw < minAngle){
+                        minAngle=yaw;
+                        oldDirection=i;
+                    }
+                }
+            }
+
+            //search possible orientation
+
+           if (oldDirection == 0){
+                dirPoints[0]=oldDirection+4; //right-forward
+                dirPoints[1]=oldDirection;   //forward
+                dirPoints[2]=oldDirection+7; //left-forward
+            }
+            else if (oldDirection < 3){
+                dirPoints[0]=oldDirection+4;
+                dirPoints[1]=oldDirection;
+                dirPoints[2]=oldDirection+3;
+            }
+            else if (oldDirection == 3){
+                dirPoints[0]=oldDirection+4;
+                dirPoints[1]=oldDirection;
+                dirPoints[2]=oldDirection+3;
+            }
+            else if (oldDirection == 4){
+                dirPoints[0]=oldDirection-3;
+                dirPoints[1]=oldDirection;
+                dirPoints[2]=oldDirection-4;
+            }
+            else if (oldDirection < 7){
+                dirPoints[0]=oldDirection-3;
+                dirPoints[1]=oldDirection;
+                dirPoints[2]=oldDirection-4;
+            }
+            else if (oldDirection == 7){
+                dirPoints[0]=oldDirection-7;
+                dirPoints[1]=oldDirection;
+                dirPoints[2]=oldDirection-4;
+            }
+
+           // decide LHR or RHR
+           if(startExploreWall == -1){
+               if(dirPoints[0] <= dirPoints[2]){
+                   startExploreWall = 0;
+                   ROS_INFO("[hector_exploration_planner] wall-follow: RHR");
+               }
+               else {
+                   startExploreWall = 1;
+                   ROS_INFO("[hector_exploration_planner] wall-follow: LHR");
+               }
+           }
+
+           //switch left and right, LHR
+           if(startExploreWall == 1){
+               int temp=dirPoints[0];
+               dirPoints[0]=dirPoints[2];
+               dirPoints[2]=temp;
+           }
+
+
+           // find next point
+           int t=0;
+           for(int i=0; i<3; i++){
+               thisDelta= obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
+
+               if (thisDelta > 3000 || loop > 7) // point is unknown or robot drive loop
+               {
+                   int plansize = plan.size() - 4;
+                     if(plansize > 0 ){
+                         plan.resize(plansize);
+                   }
+                   ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", plan.size());
+                   return !plan.empty();
+               }
+
+               if(thisDelta >= p_min_obstacle_dist_){
+                   if(obstacle_trans_array_[currentPoint] >= p_min_obstacle_dist_){
+                       if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
+                           minDelta = abs(thisDelta - p_min_obstacle_dist_);
+                           nextPoint = adjacentPoints[dirPoints[i]];
+                           oldDirection = dirPoints[i];
+                       }
+                   }
+                   if(obstacle_trans_array_[currentPoint] < p_min_obstacle_dist_){
+                       if(thisDelta > maxDelta){
+                           maxDelta = thisDelta;
+                           nextPoint = adjacentPoints[dirPoints[i]];
+                           oldDirection = dirPoints[i];
+                       }
+                   }
+               }
+               else {
+                   if(thisDelta < obstacle_trans_array_[currentPoint]){
+                       t++;
+                   }
+                   if(thisDelta > maxDelta){
+                       maxDelta = thisDelta;
+                       nextPoint = adjacentPoints[dirPoints[i]];
+                       oldDirection = dirPoints[i];
+
+                   }
+               }
+           }
+
+           if(t==3 && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[1]]]) < STRAIGHT_COST
+                   && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST
+                   && abs(obstacle_trans_array_[adjacentPoints[dirPoints[1]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST){
+               nextPoint=adjacentPoints[dirPoints[2]];
+               oldDirection=dirPoints[2];
+           }
+
+           if(oldDirection==dirPoints[2])
+               loop++;
+           else
+               loop=0;
+
+           // add point
+           unsigned int sx,sy;
+           costmap_.indexToCells((unsigned int)currentPoint,sx,sy);
+           costmap_.indexToCells((unsigned int)nextPoint,gx,gy);
+           double wx,wy;
+           costmap_.mapToWorld(sx,sy,wx,wy);
+           std::string global_frame = costmap_ros_->getGlobalFrameID();
+           trajPoint.header.frame_id = global_frame;
+           trajPoint.pose.position.x = wx;
+           trajPoint.pose.position.y = wy;
+           trajPoint.pose.position.z = 0.0;
+           // assign orientation
+           int dx = gx-sx;
+           int dy = gy-sy;
+           double yaw_path = std::atan2(dy,dx);
+           trajPoint.pose.orientation.x = 0.0;
+           trajPoint.pose.orientation.y = 0.0;
+           trajPoint.pose.orientation.z = sin(yaw_path*0.5f);
+           trajPoint.pose.orientation.w = cos(yaw_path*0.5f);
+           plan.push_back(trajPoint);
+
+           currentPoint=nextPoint;
+           k++;
+        }
+  ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", plan.size());
+        return !plan.empty();
 }
 
 void HectorExplorationPlanner::setupMapData()
@@ -326,7 +536,7 @@ void HectorExplorationPlanner::deleteMapData()
 
 bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, bool useAnglePenalty){
 
-  ROS_DEBUG("[global_planner] buildexploration_trans_array_");
+  ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
   std::queue<int> myqueue;
 
@@ -336,14 +546,14 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     unsigned int mx,my;
 
     if(!costmap_.worldToMap(goals[i].pose.position.x,goals[i].pose.position.y,mx,my)){
-      ROS_WARN("[global_planner] The goal coordinates are outside the costmap!");
+      ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
       return false;
     }
 
     int goal_point = costmap_.getIndex(mx,my);
 
     if(!isFree(goal_point)){
-      ROS_WARN("[global_planner] The goal coordinates are occupied! (obstacle, inflated obstacle or unknown)");
+      ROS_WARN("[hector_exploration_planner] The goal coordinates are occupied! (obstacle, inflated obstacle or unknown)");
       return false;
     }
 
@@ -358,11 +568,11 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     // do not punish previous frontiers (oscillation)
     if(isValid(previous_goal_)){
       if(isSameFrontier(goal_point, previous_goal_)){
-        ROS_DEBUG("[global_planner] same frontier: init with 0");
+        ROS_DEBUG("[hector_exploration_planner] same frontier: init with 0");
         exploration_trans_array_[goal_point] = 0;
       }
     }
-    ROS_DEBUG("[global_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
+    ROS_DEBUG("[hector_exploration_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
     is_goal_array_[goal_point] = true;
     myqueue.push(goal_point);
 
@@ -412,13 +622,13 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     }
   }
 
-  ROS_DEBUG("[global_planner] END: buildexploration_trans_array_");
+  ROS_DEBUG("[hector_exploration_planner] END: buildexploration_trans_array_");
   return true;
 
 }
 
 bool HectorExplorationPlanner::buildobstacle_trans_array_(){
-  ROS_DEBUG("[global_planner] buildobstacle_trans_array_");
+  ROS_DEBUG("[hector_exploration_planner] buildobstacle_trans_array_");
   std::queue<int> myqueue;
 
   // init obstacles
@@ -473,19 +683,19 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(){
       }
     }
   }
-  ROS_DEBUG("[global_planner] END: buildobstacle_trans_array_");
+  ROS_DEBUG("[hector_exploration_planner] END: buildobstacle_trans_array_");
   return true;
 }
 
 bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan){
 
-  ROS_DEBUG("[global_planner] getTrajectory");
+  ROS_DEBUG("[hector_exploration_planner] getTrajectory");
 
   // setup start positions
   unsigned int mx,my;
 
   if(!costmap_.worldToMap(start.pose.position.x,start.pose.position.y,mx,my)){
-    ROS_WARN("[global_planner] The start coordinates are outside the costmap!");
+    ROS_WARN("[hector_exploration_planner] The start coordinates are outside the costmap!");
     return false;
   }
 
@@ -514,7 +724,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
     }
 
     if(maxDelta == 0){
-      ROS_DEBUG("[global_planner] No path to the goal could be found by following gradient!");
+      ROS_DEBUG("[hector_exploration_planner] No path to the goal could be found by following gradient!");
       return false;
     }
 
@@ -547,7 +757,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
 
 
 
-  ROS_DEBUG("[global_planner] END: getTrajectory. Plansize %u", (unsigned int)plan.size());
+  ROS_DEBUG("[hector_exploration_planner] END: getTrajectory. Plansize %u", (unsigned int)plan.size());
   return !plan.empty();
 }
 
@@ -719,7 +929,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
     std::vector<geometry_msgs::PoseStamped>& traj_vector (srv_path.response.trajectory.poses);
     std::vector<geometry_msgs::PoseStamped> goals;
     size_t size = traj_vector.size();
-    ROS_DEBUG("[global_planner] size of trajectory vector %u", (unsigned int)size);
+    ROS_DEBUG("[hector_exploration_planner] size of trajectory vector %u", (unsigned int)size);
 
     if(size > 0){
       geometry_msgs::PoseStamped lastPose = traj_vector[0];
@@ -743,7 +953,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       }
 
 
-      ROS_DEBUG("[global_planner] pushed %u goals (trajectory) for inner frontier-search", (unsigned int)goals.size());
+      ROS_DEBUG("[hector_exploration_planner] pushed %u goals (trajectory) for inner frontier-search", (unsigned int)goals.size());
 
       // make exploration transform
       tf::Stamped<tf::Pose> robotPose;
@@ -1155,7 +1365,7 @@ inline int HectorExplorationPlanner::downleft(int point){
 
 //    if (!fp_expl || !fp_obs || !fp_front)
 //    {
-//        ROS_WARN("[global_planner] Cannot save maps");
+//        ROS_WARN("[hector_exploration_planner] Cannot save maps");
 //        return;
 //    }
 
@@ -1176,7 +1386,7 @@ inline int HectorExplorationPlanner::downleft(int point){
 //    fclose(fp_expl);
 //    fclose(fp_obs);
 //    fclose(fp_front);
-//    ROS_INFO("[global_planner] Maps have been saved!");
+//    ROS_INFO("[hector_exploration_planner] Maps have been saved!");
 //    return;
 
 //}
