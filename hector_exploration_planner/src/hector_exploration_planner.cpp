@@ -387,7 +387,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
            // decide LHR or RHR
            if(startExploreWall == -1){
-               if(obstacleTrans[adjacentPoints[dirPoints[0]]] <= obstacleTrans[adjacentPoints[dirPoints[2]]]){
+               if(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] <= obstacle_trans_array_[adjacentPoints[dirPoints[2]]]){
                    startExploreWall = 0;
                    ROS_INFO("[hector_exploration_planner] wall-follow: RHR");//mirror inverted??
                }
