@@ -76,6 +76,12 @@ public:
   bool exploreWalls(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &goals);
 
 private:
+
+  enum LastMode{
+    FRONTIER_EXPLORE,
+    INNER_EXPLORE
+  } last_mode_;
+
   /**
    * Updates costmap data and resizes internal data structures if costmap size has changed. Should be called once before every planning command
    */

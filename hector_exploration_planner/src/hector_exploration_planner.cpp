@@ -61,6 +61,7 @@ HectorExplorationPlanner::HectorExplorationPlanner(std::string name, costmap_2d:
 
 void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2DROS *costmap_ros_in){
 
+  last_mode_ = FRONTIER_EXPLORE;
   // unknown: 255, obstacle 254, inflated: 253, free: 0
 
   if(initialized_){
@@ -161,6 +162,8 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   // search for frontiers
   if(findFrontiers(goals)){
+
+    last_mode_ = FRONTIER_EXPLORE;
     ROS_INFO("[hector_exploration_planner] exploration: found %u frontiers!", (unsigned int)goals.size());
   } else {
     ROS_INFO("[hector_exploration_planner] exploration: no frontiers have been found! starting inner-exploration");
@@ -203,6 +206,43 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   // create obstacle tranform
   buildobstacle_trans_array_();
 
+  // If we have been in inner explore before, check if we have reached the previous inner explore goal
+  if (last_mode_ == INNER_EXPLORE){
+
+    tf::Stamped<tf::Pose> robotPose;
+    if(!costmap_ros_->getRobotPose(robotPose)){
+      ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
+    }
+
+    unsigned int xm, ym;
+    costmap_.indexToCells(previous_goal_, xm, ym);
+
+    double xw, yw;
+    costmap_.mapToWorld(xm, ym, xw, yw);
+
+    double dx = xw - robotPose.getOrigin().getX();
+    double dy = yw - robotPose.getOrigin().getY();
+
+    //Have we reached the previous goal?
+    if ( (dx*dx + dy*dy) > 0.5*0.5){
+
+      geometry_msgs::PoseStamped robotPoseMsg;
+      tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
+
+      geometry_msgs::PoseStamped goalMsg;
+      goalMsg.pose.position.x = xw;
+      goalMsg.pose.position.y = yw;
+      goalMsg.pose.orientation.w = 1.0;
+
+      if(makePlan(robotPoseMsg, goalMsg, plan)){
+        //Successfully generated plan to (previous) inner explore goal
+        ROS_INFO("[hector_exploration_planner] inner-exploration: Planning to previous inner frontier");
+        last_mode_ = INNER_EXPLORE;
+        return true;
+      }
+    }
+  }
+
   // search for frontiers
   if(findInnerFrontier(goals)){
     ROS_INFO("[hector_exploration_planner] inner-exploration: found %u inner-frontiers!", (unsigned int)goals.size());
@@ -229,10 +269,11 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
   // update previous goal
   if(!plan.empty()){
-    geometry_msgs::PoseStamped thisgoal = plan.back();
+    const geometry_msgs::PoseStamped& thisgoal = plan.back();
     unsigned int mx,my;
     costmap_.worldToMap(thisgoal.pose.position.x,thisgoal.pose.position.y,mx,my);
     previous_goal_ = costmap_.getIndex(mx,my);
+    last_mode_ = INNER_EXPLORE;
   }
 
   ROS_INFO("[hector_exploration_planner] inner-exploration: plan to an inner-frontier has been found! plansize: %u", (unsigned int)plan.size());
@@ -929,11 +970,14 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
   if (path_service_client_.call(srv_path)){
 
     std::vector<geometry_msgs::PoseStamped>& traj_vector (srv_path.response.trajectory.poses);
+
+    // We push poses of the travelled trajectory to the goals vector for building the exploration transform
     std::vector<geometry_msgs::PoseStamped> goals;
+
     size_t size = traj_vector.size();
     ROS_DEBUG("[hector_exploration_planner] size of trajectory vector %u", (unsigned int)size);
 
-    if(size > 0){
+    if(size > 1){
       geometry_msgs::PoseStamped lastPose = traj_vector[0];
       goals.push_back(lastPose);
       for(size_t i = 1; i < size; ++i){
@@ -1195,6 +1239,7 @@ float HectorExplorationPlanner::angleDifference(const geometry_msgs::PoseStamped
   return both_angle;
 }
 
+// Used to generate direction for frontiers
 double HectorExplorationPlanner::getYawToUnknown(int point){
   int adjacentPoints[8];
   getAdjacentPoints(point,adjacentPoints);
@@ -1259,6 +1304,22 @@ inline void HectorExplorationPlanner::getDiagonalPoints(int point, int points[])
   points[3] = downleft(point);
 
 }
+
+/*
+inline void HectorExplorationPlanner::getStraightAndDiagonalPoints(int point, int straight_points[], int diag_points[]){
+  /
+  // Can go up if index is larger than width
+  bool up = (point >= (int)map_width_);
+
+  // Can go down if
+  bool down = ((point/map_width_) < (map_width_-1));
+
+
+  bool right = ((point + 1) % map_width_ != 0);
+  bool left = ((point % map_width_ != 0));
+
+}
+*/
 
 inline void HectorExplorationPlanner::getAdjacentPoints(int point, int points[]){
 
