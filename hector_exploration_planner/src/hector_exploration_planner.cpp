@@ -119,7 +119,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   std::vector<geometry_msgs::PoseStamped> goals;
 
   // create obstacle tranform
-  buildobstacle_trans_array_();
+  buildobstacle_trans_array_(p_use_inflated_obs_);
 
   // plan to given goal
   goals.push_back(goal);
@@ -158,7 +158,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
 
   // create obstacle tranform
-  buildobstacle_trans_array_();
+  buildobstacle_trans_array_(p_use_inflated_obs_);
 
   // search for frontiers
   if(findFrontiers(goals)){
@@ -204,7 +204,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   std::vector<geometry_msgs::PoseStamped> goals;
 
   // create obstacle tranform
-  buildobstacle_trans_array_();
+  buildobstacle_trans_array_(p_use_inflated_obs_);
 
   // If we have been in inner explore before, check if we have reached the previous inner explore goal
   if (last_mode_ == INNER_EXPLORE){
@@ -293,7 +293,7 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
   old_frontier.push_back(oldplan.back());
 
   // create obstacle tranform
-  buildobstacle_trans_array_();
+  buildobstacle_trans_array_(p_use_inflated_obs_);
 
   // search for frontiers
   if(findFrontiers(goals,old_frontier)){
@@ -459,7 +459,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
                      if(plansize > 0 ){
                          plan.resize(plansize);
                    }
-                   ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", plan.size());
+                   ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", (int)plan.size());
                    return !plan.empty();
                }
 
@@ -670,7 +670,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
 }
 
-bool HectorExplorationPlanner::buildobstacle_trans_array_(){
+bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obstacles){
   ROS_DEBUG("[hector_exploration_planner] buildobstacle_trans_array_");
   std::queue<int> myqueue;
 
@@ -679,7 +679,7 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(){
     if(occupancy_grid_array_[i] == costmap_2d::LETHAL_OBSTACLE){
       myqueue.push(i);
       obstacle_trans_array_[i] = 0;
-    } else if(p_use_inflated_obs_){
+    } else if(use_inflated_obstacles){
       if(occupancy_grid_array_[i] == costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         myqueue.push(i);
         obstacle_trans_array_[i] = 0;
