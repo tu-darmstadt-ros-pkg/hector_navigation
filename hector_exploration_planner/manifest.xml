@@ -17,6 +17,8 @@
   <depend package="rosconsole"/>
   <depend package="hector_nav_msgs"/>
 
+  <rosdep name="eigen" />
+
   <export>
     <nav_core plugin="${prefix}/hector_exploration_base_global_planner_plugin.xml" />
     <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -Wl,-rpath,${prefix}/lib -lhector_exploration_planner"/>

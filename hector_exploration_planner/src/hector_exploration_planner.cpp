@@ -31,6 +31,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
+#include <Eigen/Geometry>
 
 #define STRAIGHT_COST 3
 #define DIAGONAL_COST 4
@@ -291,8 +292,9 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
 
   double pose_yaw = tf::getYaw(observation_pose.pose.orientation);
 
-  //double step_x = cos(pose_yaw);
-  //double step_y = sin(pose_yaw);
+  double step_x = cos(pose_yaw);
+  double step_y = sin(pose_yaw);
+  Eigen::Vector2f obs_pose_dir_vec (cos(pose_yaw), sin(pose_yaw));
 
   this->buildobstacle_trans_array_(true);
 
@@ -338,9 +340,16 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
         std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_.getIndex(x,y)] << "\n";
 
         if (sqr_dist < closest_sqr_dist){
-          closest_x = (unsigned int)x;
-          closest_y = (unsigned int)y;
-          closest_sqr_dist = sqr_dist;
+
+          Eigen::Vector2f curr_dir_vec(static_cast<float>(diff_x), static_cast<float>(diff_y));
+          curr_dir_vec.normalize();
+
+          if (curr_dir_vec.dot(obs_pose_dir_vec) > 0){
+
+            closest_x = (unsigned int)x;
+            closest_y = (unsigned int)y;
+            closest_sqr_dist = sqr_dist;
+          }
         }
       }
     }
