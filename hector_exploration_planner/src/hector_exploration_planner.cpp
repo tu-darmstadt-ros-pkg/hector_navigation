@@ -312,12 +312,12 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
   int max_x = mxs + searchSize/2;
   int max_y = mys + searchSize/2;
 
-  if (max_x > costmap_.getSizeInCellsX()){
-    max_x = costmap_.getSizeInCellsX()-1;
+  if (max_x > static_cast<int>(costmap_.getSizeInCellsX())){
+    max_x = static_cast<int>(costmap_.getSizeInCellsX()-1);
   }
 
-  if (max_y > costmap_.getSizeInCellsY()){
-    max_y = costmap_.getSizeInCellsY()-1;
+  if (max_y > static_cast<int>(costmap_.getSizeInCellsY())){
+    max_y = static_cast<int>(costmap_.getSizeInCellsY()-1);
   }
 
   int closest_x = -1;
