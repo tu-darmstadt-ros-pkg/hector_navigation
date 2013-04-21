@@ -38,24 +38,24 @@
 using namespace hector_exploration_planner;
 
 HectorExplorationPlanner::HectorExplorationPlanner()
-  : costmap_ros_(0)
-  , occupancy_grid_array_(0)
-  , exploration_trans_array_(0)
-  , obstacle_trans_array_(0)
-  , frontier_map_array_(0)
-  , is_goal_array_(0)
-  , initialized_(false)
-  , map_width_(0)
-  , map_height_(0)
-  , num_map_cells_(0)
-  {}
+: costmap_ros_(0)
+, occupancy_grid_array_(0)
+, exploration_trans_array_(0)
+, obstacle_trans_array_(0)
+, frontier_map_array_(0)
+, is_goal_array_(0)
+, initialized_(false)
+, map_width_(0)
+, map_height_(0)
+, num_map_cells_(0)
+{}
 
 HectorExplorationPlanner::~HectorExplorationPlanner(){
   this->deleteMapData();
 }
 
 HectorExplorationPlanner::HectorExplorationPlanner(std::string name, costmap_2d::Costmap2DROS *costmap_ros_in) :
-  costmap_ros_(NULL), initialized_(false) {
+costmap_ros_(NULL), initialized_(false) {
   HectorExplorationPlanner::initialize(name, costmap_ros_in);
 }
 
@@ -105,7 +105,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 
   // do exploration? (not used anymore? -> call doExploration())
   if ((goal.pose.orientation.w == 0.0) && (goal.pose.orientation.x == 0.0) &&
-      (goal.pose.orientation.y == 0.0) && (goal.pose.orientation.z == 0.0)){
+  (goal.pose.orientation.y == 0.0) && (goal.pose.orientation.z == 0.0)){
     return doExploration(start,plan);
   }
 
@@ -280,6 +280,160 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   return true;
 }
 
+bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::PoseStamped& observation_pose, double desired_distance, std::vector<geometry_msgs::PoseStamped> &plan)
+{
+  this->setupMapData();
+  resetMaps();
+  plan.clear();
+
+  unsigned int mxs,mys;
+  costmap_.worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
+
+  double pose_yaw = tf::getYaw(observation_pose.pose.orientation);
+
+  //double step_x = cos(pose_yaw);
+  //double step_y = sin(pose_yaw);
+
+  this->buildobstacle_trans_array_(true);
+
+  int searchSize = 2.0 / costmap_.getResolution();
+
+  int min_x = mxs - searchSize/2;
+  int min_y = mys - searchSize/2;
+
+  if (min_x < 0){
+    min_x = 0;
+  }
+
+  if (min_y < 0){
+    min_y = 0;
+  }
+
+  int max_x = mxs + searchSize/2;
+  int max_y = mys + searchSize/2;
+
+  if (max_x > costmap_.getSizeInCellsX()){
+    max_x = costmap_.getSizeInCellsX()-1;
+  }
+
+  if (max_y > costmap_.getSizeInCellsY()){
+    max_y = costmap_.getSizeInCellsY()-1;
+  }
+
+  int closest_x = -1;
+  int closest_y = -1;
+
+  int closest_sqr_dist = INT_MAX;
+
+  for (int x = min_x; x < max_x; ++x){
+    for (int y = min_y; y < max_y; ++y){
+
+      unsigned int obstacle_trans_val = obstacle_trans_array_[costmap_.getIndex(x,y)];
+      if ( (obstacle_trans_val != INT_MAX) && (obstacle_trans_val != 0) ){
+        int diff_x = (int)mxs - x;
+        int diff_y = (int)mys - y;
+
+        int sqr_dist = diff_x*diff_x + diff_y*diff_y;
+
+        std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_.getIndex(x,y)] << "\n";
+
+        if (sqr_dist < closest_sqr_dist){
+          closest_x = (unsigned int)x;
+          closest_y = (unsigned int)y;
+          closest_sqr_dist = sqr_dist;
+        }
+      }
+    }
+  }
+
+  std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
+  std::cout << "pos: " << closest_x << " , " << closest_y << "\n";
+
+  // If closest vals are still -1, we didn't find a position
+  if ((closest_x > -1) && (closest_y > -1)){
+    double closest_world_x, closest_world_y;
+    costmap_.mapToWorld(closest_x, closest_y, closest_world_x, closest_world_y);
+    geometry_msgs::PoseStamped pose;
+    pose.pose.orientation.w = 1.0;
+    pose.pose.position.x = closest_world_x;
+    pose.pose.position.y = closest_world_y;
+    pose.header.frame_id = "map";
+
+    plan.push_back(pose);
+
+    return true;
+  }else{
+    return false;
+  }
+
+  /*
+
+     Eigen::Vector2i tile_size_lower_halfi (p_size_tiled_map_image_x_ / 2, p_size_tiled_map_image_y_ / 2);
+
+     Eigen::Vector2i min_coords_map (rob_position_mapi - tile_size_lower_halfi);
+
+     //Clamp to lower map coords
+     if (min_coords_map[0] < 0){
+       min_coords_map[0] = 0;
+     }
+
+     if (min_coords_map[1] < 0){
+       min_coords_map[1] = 0;
+     }
+
+     Eigen::Vector2i max_coords_map (min_coords_map + Eigen::Vector2i(p_size_tiled_map_image_x_,p_size_tiled_map_image_y_));
+
+     //Clamp to upper map coords
+     if (max_coords_map[0] > size_x){
+
+       int diff = max_coords_map[0] - size_x;
+       min_coords_map[0] -= diff;
+
+       max_coords_map[0] = size_x;
+     }
+
+     if (max_coords_map[1] > size_y){
+
+       int diff = max_coords_map[1] - size_y;
+       min_coords_map[1] -= diff;
+
+       max_coords_map[1] = size_y;
+     }
+
+     //Clamp lower again (in case the map is smaller than the selected visualization window)
+     if (min_coords_map[0] < 0){
+       min_coords_map[0] = 0;
+     }
+
+     if (min_coords_map[1] < 0){
+       min_coords_map[1] = 0;
+     }
+
+     Eigen::Vector2i actual_map_dimensions(max_coords_map - min_coords_map);
+
+     cv::Mat* map_mat  = &cv_img_tile_.image;
+
+     // resize cv image if it doesn't have the same dimensions as the selected visualization window
+     if ( (map_mat->rows != actual_map_dimensions[0]) || (map_mat->cols != actual_map_dimensions[1])){
+       *map_mat = cv::Mat(actual_map_dimensions[0], actual_map_dimensions[1], CV_8U);
+     }
+
+     const std::vector<int8_t>& map_data (map->data);
+
+     unsigned char *map_mat_data_p=(unsigned char*) map_mat->data;
+
+     //We have to flip around the y axis, y for image starts at the top and y for map at the bottom
+     int y_img = max_coords_map[1]-1;
+
+  //Search closest free point
+
+
+  return false;
+  */
+
+
+}
+
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
   ROS_INFO("[hector_exploration_planner] alternative exploration: starting alternative exploration");
 
@@ -321,27 +475,27 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
 }
 
 float HectorExplorationPlanner::angleDifferenceWall(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
-    // setup start positions
-    unsigned int mxs,mys;
-    costmap_.worldToMap(start.pose.position.x,start.pose.position.y,mxs,mys);
+  // setup start positions
+  unsigned int mxs,mys;
+  costmap_.worldToMap(start.pose.position.x,start.pose.position.y,mxs,mys);
 
-    unsigned int gx,gy;
-    costmap_.worldToMap(goal.pose.position.x,goal.pose.position.y,gx,gy);
+  unsigned int gx,gy;
+  costmap_.worldToMap(goal.pose.position.x,goal.pose.position.y,gx,gy);
 
-    int goal_proj_x = gx-mxs;
-    int goal_proj_y = gy-mys;
+  int goal_proj_x = gx-mxs;
+  int goal_proj_y = gy-mys;
 
-    float start_angle = tf::getYaw(start.pose.orientation);
-    float goal_angle = std::atan2(goal_proj_y,goal_proj_x);
+  float start_angle = tf::getYaw(start.pose.orientation);
+  float goal_angle = std::atan2(goal_proj_y,goal_proj_x);
 
-    float both_angle = 0;
-    if(start_angle > goal_angle){
-        both_angle = start_angle - goal_angle;
-    } else {
-        both_angle = goal_angle - start_angle;
-    }
+  float both_angle = 0;
+  if(start_angle > goal_angle){
+    both_angle = start_angle - goal_angle;
+  } else {
+    both_angle = goal_angle - start_angle;
+  }
 
-    return both_angle;
+  return both_angle;
 }
 
 bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
@@ -350,186 +504,186 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
   int startExploreWall = 1;
 
   ROS_DEBUG("[hector_exploration_planner] wall-follow: exploreWalls");
-	unsigned int mx,my;
+  unsigned int mx,my;
   if(!costmap_.worldToMap(start.pose.position.x, start.pose.position.y, mx, my)){
     ROS_WARN("[hector_exploration_planner] wall-follow: The start coordinates are outside the costmap!");
-		return false;
-	}
-        int currentPoint=costmap_.getIndex(mx, my);
-        int nextPoint;
-        int oldDirection = -1;
-        int k=0;
-        int loop=0;
+    return false;
+  }
+  int currentPoint=costmap_.getIndex(mx, my);
+  int nextPoint;
+  int oldDirection = -1;
+  int k=0;
+  int loop=0;
 
-        while(k<50){
-            int adjacentPoints [8];
-            getAdjacentPoints(currentPoint, adjacentPoints);
-            int dirPoints [3];
+  while(k<50){
+    int adjacentPoints [8];
+    getAdjacentPoints(currentPoint, adjacentPoints);
+    int dirPoints [3];
 
-            int minDelta=INT_MAX;
-            int maxDelta=0;
-            int thisDelta;
-            float minAngle=3.1415; //Rad -> 180°
+    int minDelta=INT_MAX;
+    int maxDelta=0;
+    int thisDelta;
+    float minAngle=3.1415; //Rad -> 180°
 
-            geometry_msgs::PoseStamped trajPoint;
-            unsigned int gx,gy;
+    geometry_msgs::PoseStamped trajPoint;
+    unsigned int gx,gy;
 
-            if(oldDirection==-1){
-                // find robot orientation
-                for ( int i=0; i<8; i++){
-                    costmap_.indexToCells((unsigned int)adjacentPoints[i],gx,gy);
-                    double wx,wy;
-                    costmap_.mapToWorld(gx,gy,wx,wy);
-                    std::string global_frame = costmap_ros_->getGlobalFrameID();
-                    trajPoint.header.frame_id = global_frame;
-                    trajPoint.pose.position.x = wx;
-                    trajPoint.pose.position.y = wy;
-                    trajPoint.pose.position.z = 0.0;
-                    float yaw = angleDifferenceWall(start, trajPoint);
-                    if(yaw < minAngle){
-                        minAngle=yaw;
-                        oldDirection=i;
-                    }
-                }
-            }
-
-            //search possible orientation
-
-           if (oldDirection == 0){
-                dirPoints[0]=oldDirection+4; //right-forward
-                dirPoints[1]=oldDirection;   //forward
-                dirPoints[2]=oldDirection+7; //left-forward
-            }
-            else if (oldDirection < 3){
-                dirPoints[0]=oldDirection+4;
-                dirPoints[1]=oldDirection;
-                dirPoints[2]=oldDirection+3;
-            }
-            else if (oldDirection == 3){
-                dirPoints[0]=oldDirection+4;
-                dirPoints[1]=oldDirection;
-                dirPoints[2]=oldDirection+3;
-            }
-            else if (oldDirection == 4){
-                dirPoints[0]=oldDirection-3;
-                dirPoints[1]=oldDirection;
-                dirPoints[2]=oldDirection-4;
-            }
-            else if (oldDirection < 7){
-                dirPoints[0]=oldDirection-3;
-                dirPoints[1]=oldDirection;
-                dirPoints[2]=oldDirection-4;
-            }
-            else if (oldDirection == 7){
-                dirPoints[0]=oldDirection-7;
-                dirPoints[1]=oldDirection;
-                dirPoints[2]=oldDirection-4;
-            }
-
-           // decide LHR or RHR
-           if(startExploreWall == -1){
-               if(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] <= obstacle_trans_array_[adjacentPoints[dirPoints[2]]]){
-                   startExploreWall = 0;
-                   ROS_INFO("[hector_exploration_planner] wall-follow: RHR");//mirror inverted??
-               }
-               else {
-                   startExploreWall = 1;
-                   ROS_INFO("[hector_exploration_planner] wall-follow: LHR");//mirror inverted??
-               }
-           }
-
-
-
-           //switch left and right, LHR
-           if(startExploreWall == 1){
-               int temp=dirPoints[0];
-               dirPoints[0]=dirPoints[2];
-               dirPoints[2]=temp;
-           }
-
-
-           // find next point
-           int t=0;
-           for(int i=0; i<3; i++){
-               thisDelta= obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
-
-               if (thisDelta > 3000 || loop > 7) // point is unknown or robot drive loop
-               {
-                   int plansize = plan.size() - 4;
-                     if(plansize > 0 ){
-                         plan.resize(plansize);
-                   }
-                   ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", (int)plan.size());
-                   return !plan.empty();
-               }
-
-               if(thisDelta >= p_min_obstacle_dist_){
-                   if(obstacle_trans_array_[currentPoint] >= p_min_obstacle_dist_){
-                       if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
-                           minDelta = abs(thisDelta - p_min_obstacle_dist_);
-                           nextPoint = adjacentPoints[dirPoints[i]];
-                           oldDirection = dirPoints[i];
-                       }
-                   }
-                   if(obstacle_trans_array_[currentPoint] < p_min_obstacle_dist_){
-                       if(thisDelta > maxDelta){
-                           maxDelta = thisDelta;
-                           nextPoint = adjacentPoints[dirPoints[i]];
-                           oldDirection = dirPoints[i];
-                       }
-                   }
-               }
-               else {
-                   if(thisDelta < obstacle_trans_array_[currentPoint]){
-                       t++;
-                   }
-                   if(thisDelta > maxDelta){
-                       maxDelta = thisDelta;
-                       nextPoint = adjacentPoints[dirPoints[i]];
-                       oldDirection = dirPoints[i];
-
-                   }
-               }
-           }
-
-           if(t==3 && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[1]]]) < STRAIGHT_COST
-                   && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST
-                   && abs(obstacle_trans_array_[adjacentPoints[dirPoints[1]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST){
-               nextPoint=adjacentPoints[dirPoints[2]];
-               oldDirection=dirPoints[2];
-           }
-
-           if(oldDirection==dirPoints[2])
-               loop++;
-           else
-               loop=0;
-
-           // add point
-           unsigned int sx,sy;
-           costmap_.indexToCells((unsigned int)currentPoint,sx,sy);
-           costmap_.indexToCells((unsigned int)nextPoint,gx,gy);
-           double wx,wy;
-           costmap_.mapToWorld(sx,sy,wx,wy);
-           std::string global_frame = costmap_ros_->getGlobalFrameID();
-           trajPoint.header.frame_id = global_frame;
-           trajPoint.pose.position.x = wx;
-           trajPoint.pose.position.y = wy;
-           trajPoint.pose.position.z = 0.0;
-           // assign orientation
-           int dx = gx-sx;
-           int dy = gy-sy;
-           double yaw_path = std::atan2(dy,dx);
-           trajPoint.pose.orientation.x = 0.0;
-           trajPoint.pose.orientation.y = 0.0;
-           trajPoint.pose.orientation.z = sin(yaw_path*0.5f);
-           trajPoint.pose.orientation.w = cos(yaw_path*0.5f);
-           plan.push_back(trajPoint);
-
-           currentPoint=nextPoint;
-           k++;
+    if(oldDirection==-1){
+      // find robot orientation
+      for ( int i=0; i<8; i++){
+        costmap_.indexToCells((unsigned int)adjacentPoints[i],gx,gy);
+        double wx,wy;
+        costmap_.mapToWorld(gx,gy,wx,wy);
+        std::string global_frame = costmap_ros_->getGlobalFrameID();
+        trajPoint.header.frame_id = global_frame;
+        trajPoint.pose.position.x = wx;
+        trajPoint.pose.position.y = wy;
+        trajPoint.pose.position.z = 0.0;
+        float yaw = angleDifferenceWall(start, trajPoint);
+        if(yaw < minAngle){
+          minAngle=yaw;
+          oldDirection=i;
         }
-  ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", plan.size());
+      }
+    }
+
+    //search possible orientation
+
+    if (oldDirection == 0){
+      dirPoints[0]=oldDirection+4; //right-forward
+      dirPoints[1]=oldDirection;   //forward
+      dirPoints[2]=oldDirection+7; //left-forward
+    }
+    else if (oldDirection < 3){
+      dirPoints[0]=oldDirection+4;
+      dirPoints[1]=oldDirection;
+      dirPoints[2]=oldDirection+3;
+    }
+    else if (oldDirection == 3){
+      dirPoints[0]=oldDirection+4;
+      dirPoints[1]=oldDirection;
+      dirPoints[2]=oldDirection+3;
+    }
+    else if (oldDirection == 4){
+      dirPoints[0]=oldDirection-3;
+      dirPoints[1]=oldDirection;
+      dirPoints[2]=oldDirection-4;
+    }
+    else if (oldDirection < 7){
+      dirPoints[0]=oldDirection-3;
+      dirPoints[1]=oldDirection;
+      dirPoints[2]=oldDirection-4;
+    }
+    else if (oldDirection == 7){
+      dirPoints[0]=oldDirection-7;
+      dirPoints[1]=oldDirection;
+      dirPoints[2]=oldDirection-4;
+    }
+
+    // decide LHR or RHR
+    if(startExploreWall == -1){
+      if(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] <= obstacle_trans_array_[adjacentPoints[dirPoints[2]]]){
+        startExploreWall = 0;
+        ROS_INFO("[hector_exploration_planner] wall-follow: RHR");//mirror inverted??
+      }
+      else {
+        startExploreWall = 1;
+        ROS_INFO("[hector_exploration_planner] wall-follow: LHR");//mirror inverted??
+      }
+    }
+
+
+
+    //switch left and right, LHR
+    if(startExploreWall == 1){
+      int temp=dirPoints[0];
+      dirPoints[0]=dirPoints[2];
+      dirPoints[2]=temp;
+    }
+
+
+    // find next point
+    int t=0;
+    for(int i=0; i<3; i++){
+      thisDelta= obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
+
+      if (thisDelta > 3000 || loop > 7) // point is unknown or robot drive loop
+      {
+        int plansize = plan.size() - 4;
+        if(plansize > 0 ){
+          plan.resize(plansize);
+        }
+        ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", (int)plan.size());
         return !plan.empty();
+      }
+
+      if(thisDelta >= p_min_obstacle_dist_){
+        if(obstacle_trans_array_[currentPoint] >= p_min_obstacle_dist_){
+          if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
+            minDelta = abs(thisDelta - p_min_obstacle_dist_);
+            nextPoint = adjacentPoints[dirPoints[i]];
+            oldDirection = dirPoints[i];
+          }
+        }
+        if(obstacle_trans_array_[currentPoint] < p_min_obstacle_dist_){
+          if(thisDelta > maxDelta){
+            maxDelta = thisDelta;
+            nextPoint = adjacentPoints[dirPoints[i]];
+            oldDirection = dirPoints[i];
+          }
+        }
+      }
+      else {
+        if(thisDelta < obstacle_trans_array_[currentPoint]){
+          t++;
+        }
+        if(thisDelta > maxDelta){
+          maxDelta = thisDelta;
+          nextPoint = adjacentPoints[dirPoints[i]];
+          oldDirection = dirPoints[i];
+
+        }
+      }
+    }
+
+    if(t==3 && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[1]]]) < STRAIGHT_COST
+    && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST
+    && abs(obstacle_trans_array_[adjacentPoints[dirPoints[1]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST){
+      nextPoint=adjacentPoints[dirPoints[2]];
+      oldDirection=dirPoints[2];
+    }
+
+    if(oldDirection==dirPoints[2])
+      loop++;
+    else
+      loop=0;
+
+    // add point
+    unsigned int sx,sy;
+    costmap_.indexToCells((unsigned int)currentPoint,sx,sy);
+    costmap_.indexToCells((unsigned int)nextPoint,gx,gy);
+    double wx,wy;
+    costmap_.mapToWorld(sx,sy,wx,wy);
+    std::string global_frame = costmap_ros_->getGlobalFrameID();
+    trajPoint.header.frame_id = global_frame;
+    trajPoint.pose.position.x = wx;
+    trajPoint.pose.position.y = wy;
+    trajPoint.pose.position.z = 0.0;
+    // assign orientation
+    int dx = gx-sx;
+    int dy = gy-sy;
+    double yaw_path = std::atan2(dy,dx);
+    trajPoint.pose.orientation.x = 0.0;
+    trajPoint.pose.orientation.y = 0.0;
+    trajPoint.pose.orientation.z = sin(yaw_path*0.5f);
+    trajPoint.pose.orientation.w = cos(yaw_path*0.5f);
+    plan.push_back(trajPoint);
+
+    currentPoint=nextPoint;
+    k++;
+  }
+  ROS_DEBUG("[hector_exploration_planner] wall-follow: END: exploreWalls. Plansize %d", (int)plan.size());
+  return !plan.empty();
 }
 
 void HectorExplorationPlanner::setupMapData()
@@ -767,7 +921,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
     }
 
     if(maxDelta == 0){
-      ROS_DEBUG("[hector_exploration_planner] No path to the goal could be found by following gradient!");
+      ROS_WARN("[hector_exploration_planner] No path to the goal could be found by following gradient!");
       return false;
     }
 
