@@ -292,8 +292,6 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
 
   double pose_yaw = tf::getYaw(observation_pose.pose.orientation);
 
-  double step_x = cos(pose_yaw);
-  double step_y = sin(pose_yaw);
   Eigen::Vector2f obs_pose_dir_vec (cos(pose_yaw), sin(pose_yaw));
 
   this->buildobstacle_trans_array_(true);
@@ -337,7 +335,7 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
 
         int sqr_dist = diff_x*diff_x + diff_y*diff_y;
 
-        std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_.getIndex(x,y)] << "\n";
+        //std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_.getIndex(x,y)] << "\n";
 
         if (sqr_dist < closest_sqr_dist){
 
@@ -355,18 +353,23 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
     }
   }
 
-  std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
-  std::cout << "pos: " << closest_x << " , " << closest_y << "\n";
+  //std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
+  //std::cout << "pos: " << closest_x << " , " << closest_y << "\n";
 
   // If closest vals are still -1, we didn't find a position
   if ((closest_x > -1) && (closest_y > -1)){
     double closest_world_x, closest_world_y;
     costmap_.mapToWorld(closest_x, closest_y, closest_world_x, closest_world_y);
     geometry_msgs::PoseStamped pose;
-    pose.pose.orientation.w = 1.0;
     pose.pose.position.x = closest_world_x;
     pose.pose.position.y = closest_world_y;
     pose.header.frame_id = "map";
+
+    Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_world_x, observation_pose.pose.position.y - closest_world_y));
+    double angle = std::atan2(dir_vec.y(), dir_vec.x());
+
+    pose.pose.orientation.w = cos(angle*0.5);
+    pose.pose.orientation.z = sin(angle*0.5);
 
     plan.push_back(pose);
 
