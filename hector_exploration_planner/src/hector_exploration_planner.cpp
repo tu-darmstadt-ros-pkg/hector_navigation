@@ -33,8 +33,13 @@
 #include <hector_nav_msgs/GetRobotTrajectory.h>
 #include <Eigen/Geometry>
 
-#define STRAIGHT_COST 3
-#define DIAGONAL_COST 4
+#include <hector_exploration_planner/ExplorationPlannerConfig.h>
+
+#define STRAIGHT_COST 100
+#define DIAGONAL_COST 141
+
+//#define STRAIGHT_COST 3
+//#define DIAGONAL_COST 4
 
 using namespace hector_exploration_planner;
 
@@ -80,25 +85,57 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   ros::NodeHandle private_nh_("~/" + name);
   ros::NodeHandle nh;
   visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
-  private_nh_.param("security_constant", p_alpha_, 0.5);
-  private_nh_.param("min_obstacle_dist", p_min_obstacle_dist_, 10);
-  private_nh_.param("plan_in_unknown", p_plan_in_unknown_, false);
-  private_nh_.param("use_inflated_obstacle", p_use_inflated_obs_, true);
-  private_nh_.param("goal_angle_penalty", p_goal_angle_penalty_, 50);
-  private_nh_.param("min_frontier_size", p_min_frontier_size_, 5);
-  private_nh_.param("dist_for_goal_reached", p_dist_for_goal_reached_, 0.25);
-  private_nh_.param("same_frontier_distance", p_same_frontier_dist_, 0.25);
+
+  dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>());
+
+  dyn_rec_server_->setCallback(boost::bind(&HectorExplorationPlanner::dynRecParamCallback, this, _1, _2));
 
   path_service_client_ = nh.serviceClient<hector_nav_msgs::GetRobotTrajectory>("trajectory");
 
-  ROS_DEBUG("[hector_exploration_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, p_goal_angle_penalty_:%d , min_frontier_size: %d, p_dist_for_goal_reached_: %f, same_frontier: %f", p_alpha_, p_min_obstacle_dist_, p_plan_in_unknown_, p_use_inflated_obs_, p_goal_angle_penalty_, p_min_frontier_size_,p_dist_for_goal_reached_,p_same_frontier_dist_);
-  p_min_obstacle_dist_ = p_min_obstacle_dist_ * STRAIGHT_COST;
+  ROS_INFO("[hector_exploration_planner] Parameter set. security_const: %f, min_obstacle_dist: %d, plan_in_unknown: %d, use_inflated_obstacle: %d, p_goal_angle_penalty_:%d , min_frontier_size: %d, p_dist_for_goal_reached_: %f, same_frontier: %f", p_alpha_, p_min_obstacle_dist_, p_plan_in_unknown_, p_use_inflated_obs_, p_goal_angle_penalty_, p_min_frontier_size_,p_dist_for_goal_reached_,p_same_frontier_dist_);
+  //p_min_obstacle_dist_ = p_min_obstacle_dist_ * STRAIGHT_COST;
 
   this->name = name;
   this->initialized_ = true;
   this->previous_goal_ = -1;
 
 }
+
+void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
+{
+  if (p_plan_in_unknown_ != config.plan_in_unknown){
+    p_plan_in_unknown_ = config.plan_in_unknown;
+  }
+
+  if (p_use_inflated_obs_ != config.use_inflated_obstacles){
+    p_use_inflated_obs_ = config.use_inflated_obstacles;
+  }
+
+  if (p_goal_angle_penalty_ != config.goal_angle_penalty){
+    p_goal_angle_penalty_ = config.goal_angle_penalty;
+  }
+
+  if (p_alpha_ != config.security_constant){
+    p_alpha_ = config.security_constant;
+  }
+
+  if (p_dist_for_goal_reached_ != config.dist_for_goal_reached){
+    p_dist_for_goal_reached_ = config.dist_for_goal_reached;
+  }
+
+  if (p_same_frontier_dist_ != config.same_frontier_distance){
+    p_same_frontier_dist_ = config.same_frontier_distance;
+  }
+
+  if (p_min_frontier_size_ != config.min_frontier_size){
+    p_min_frontier_size_ = config.min_frontier_size;
+  }
+
+  p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
+
+}
+
+
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal, std::vector<geometry_msgs::PoseStamped> &plan){
 

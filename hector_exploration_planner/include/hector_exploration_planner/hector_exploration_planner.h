@@ -34,7 +34,13 @@
 #include <costmap_2d/costmap_2d_ros.h>
 #include <geometry_msgs/PoseStamped.h>
 
+#include <dynamic_reconfigure/server.h>
+
+
+
 namespace hector_exploration_planner{
+
+class ExplorationPlannerConfig;
 
 class HectorExplorationPlanner {
 public:
@@ -42,6 +48,8 @@ public:
   ~HectorExplorationPlanner();
   HectorExplorationPlanner(std::string name,costmap_2d::Costmap2DROS *costmap_ros);
   void initialize(std::string name,costmap_2d::Costmap2DROS *costmap_ros);
+
+  void dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level);
 
   /**
    * Plans from start to given goal. If orientation quaternion of goal is all zeros, calls exploration instead. This is a hacky workaround that
@@ -148,6 +156,8 @@ private:
   double p_alpha_;
   double p_dist_for_goal_reached_;
   double p_same_frontier_dist_;
+
+  boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 
 };
 }

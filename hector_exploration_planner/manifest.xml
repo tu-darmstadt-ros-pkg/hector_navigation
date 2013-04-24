@@ -8,7 +8,11 @@
   <license>BSD</license>
   <review status="unreviewed" notes=""/>
   <url>http://ros.org/wiki/hector_exploration_planner</url>
+
   <depend package="roscpp"/>
+  <depend package="rospy"/>
+  <depend package="dynamic_reconfigure" />
+
   <depend package="geometry_msgs"/>
   <depend package="costmap_2d"/>
   <depend package="nav_core"/>
