@@ -57,7 +57,7 @@ void ElevationMapping::onInit()
     world_map_transform.setTransforms(map_meta);
 
     nPrivateHandle.param("map_frame_id", map_frame_id,std::string("map"));
-    nPrivateHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_footprint"));
+    nPrivateHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_stabilized"));
     nPrivateHandle.param("local_elevation_map_topic", local_elevation_map_topic, std::string("elevation_map_local"));
     nPrivateHandle.param("global_elevation_map_topic", global_elevation_map_topic, std::string("elevation_map_global"));
     nPrivateHandle.param("point_cloud_topic", point_cloud_topic, std::string("openni/depth/points"));
