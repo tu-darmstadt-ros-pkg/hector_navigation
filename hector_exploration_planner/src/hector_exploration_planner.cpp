@@ -318,11 +318,10 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   return true;
 }
 
-bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::PoseStamped& observation_pose, double desired_distance, std::vector<geometry_msgs::PoseStamped> &plan)
+bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamped& observation_pose, const double desired_distance, geometry_msgs::PoseStamped& new_observation_pose)
 {
   this->setupMapData();
   resetMaps();
-  plan.clear();
 
   unsigned int mxs,mys;
   costmap_.worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
@@ -395,92 +394,40 @@ bool HectorExplorationPlanner::makePlanToObservationPose(const geometry_msgs::Po
 
   // If closest vals are still -1, we didn't find a position
   if ((closest_x > -1) && (closest_y > -1)){
-    double closest_world_x, closest_world_y;
-    costmap_.mapToWorld(closest_x, closest_y, closest_world_x, closest_world_y);
-    geometry_msgs::PoseStamped pose;
-    pose.pose.position.x = closest_world_x;
-    pose.pose.position.y = closest_world_y;
-    pose.header.frame_id = "map";
 
-    Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_world_x, observation_pose.pose.position.y - closest_world_y));
-    double angle = std::atan2(dir_vec.y(), dir_vec.x());
+    Eigen::Vector2d closest_point_world;
+    costmap_.mapToWorld(closest_x, closest_y, closest_point_world.x(),  closest_point_world.y());
 
-    pose.pose.orientation.w = cos(angle*0.5);
-    pose.pose.orientation.z = sin(angle*0.5);
+    Eigen::Vector2d original_goal_pose(observation_pose.pose.position.x, observation_pose.pose.position.y);
 
-    plan.push_back(pose);
+    //geometry_msgs::PoseStamped pose;
+    new_observation_pose.header.frame_id = "map";
+    new_observation_pose.header.stamp = observation_pose.header.stamp;
+
+    //If we get back the original observation pose (or another one very close to it), return that
+    if ((closest_point_world - original_goal_pose).norm() < (costmap_.getResolution() * 1.5)){
+        new_observation_pose.pose = observation_pose.pose;
+    }else{
+
+        new_observation_pose.pose.position.x = closest_point_world.x();
+        new_observation_pose.pose.position.y = closest_point_world.y();
+        new_observation_pose.pose.position.z = 0.0;
+
+
+        Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_point_world[0], observation_pose.pose.position.y - closest_point_world[1]));
+        double angle = std::atan2(dir_vec.y(), dir_vec.x());
+
+        new_observation_pose.pose.orientation.w = cos(angle*0.5);
+        new_observation_pose.pose.orientation.x = 0.0;
+        new_observation_pose.pose.orientation.y = 0.0;
+        new_observation_pose.pose.orientation.z = sin(angle*0.5);
+
+    }
 
     return true;
   }else{
     return false;
   }
-
-  /*
-
-     Eigen::Vector2i tile_size_lower_halfi (p_size_tiled_map_image_x_ / 2, p_size_tiled_map_image_y_ / 2);
-
-     Eigen::Vector2i min_coords_map (rob_position_mapi - tile_size_lower_halfi);
-
-     //Clamp to lower map coords
-     if (min_coords_map[0] < 0){
-       min_coords_map[0] = 0;
-     }
-
-     if (min_coords_map[1] < 0){
-       min_coords_map[1] = 0;
-     }
-
-     Eigen::Vector2i max_coords_map (min_coords_map + Eigen::Vector2i(p_size_tiled_map_image_x_,p_size_tiled_map_image_y_));
-
-     //Clamp to upper map coords
-     if (max_coords_map[0] > size_x){
-
-       int diff = max_coords_map[0] - size_x;
-       min_coords_map[0] -= diff;
-
-       max_coords_map[0] = size_x;
-     }
-
-     if (max_coords_map[1] > size_y){
-
-       int diff = max_coords_map[1] - size_y;
-       min_coords_map[1] -= diff;
-
-       max_coords_map[1] = size_y;
-     }
-
-     //Clamp lower again (in case the map is smaller than the selected visualization window)
-     if (min_coords_map[0] < 0){
-       min_coords_map[0] = 0;
-     }
-
-     if (min_coords_map[1] < 0){
-       min_coords_map[1] = 0;
-     }
-
-     Eigen::Vector2i actual_map_dimensions(max_coords_map - min_coords_map);
-
-     cv::Mat* map_mat  = &cv_img_tile_.image;
-
-     // resize cv image if it doesn't have the same dimensions as the selected visualization window
-     if ( (map_mat->rows != actual_map_dimensions[0]) || (map_mat->cols != actual_map_dimensions[1])){
-       *map_mat = cv::Mat(actual_map_dimensions[0], actual_map_dimensions[1], CV_8U);
-     }
-
-     const std::vector<int8_t>& map_data (map->data);
-
-     unsigned char *map_mat_data_p=(unsigned char*) map_mat->data;
-
-     //We have to flip around the y axis, y for image starts at the top and y for map at the bottom
-     int y_img = max_coords_map[1]-1;
-
-  //Search closest free point
-
-
-  return false;
-  */
-
-
 }
 
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
@@ -1096,7 +1043,6 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
           max_obs_idx = i;
         }
       }
-
     }
 
     if(current_frontier_size < p_min_frontier_size_){
