@@ -137,15 +137,18 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
 
 
 
-bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal, std::vector<geometry_msgs::PoseStamped> &plan){
+bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
   this->setupMapData();
 
   // do exploration? (not used anymore? -> call doExploration())
-  if ((goal.pose.orientation.w == 0.0) && (goal.pose.orientation.x == 0.0) &&
-  (goal.pose.orientation.y == 0.0) && (goal.pose.orientation.z == 0.0)){
-    return doExploration(start,plan);
+
+  if ((original_goal.pose.orientation.w == 0.0) && (original_goal.pose.orientation.x == 0.0) &&
+  (original_goal.pose.orientation.y == 0.0) && (original_goal.pose.orientation.z == 0.0)){
+      ROS_ERROR("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
+      return doExploration(start,plan);
   }
+
 
   // planning
   ROS_INFO("[hector_exploration_planner] planning: starting to make a plan to given goal point");
@@ -159,8 +162,14 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_);
 
+  geometry_msgs::PoseStamped adjusted_goal;
+  if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
+      ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
+      return false;
+  }
+
   // plan to given goal
-  goals.push_back(goal);
+  goals.push_back(adjusted_goal);
 
   // make plan
   if(!buildexploration_trans_array_(start,goals,true)){
@@ -171,9 +180,9 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   }
 
   // save and add last point
-  plan.push_back(goal);
+  plan.push_back(adjusted_goal);
   unsigned int mx,my;
-  costmap_.worldToMap(goal.pose.position.x,goal.pose.position.y,mx,my);
+  costmap_.worldToMap(adjusted_goal.pose.position.x,adjusted_goal.pose.position.y,mx,my);
   previous_goal_ = costmap_.getIndex(mx,my);
 
   ROS_INFO("[hector_exploration_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
@@ -193,7 +202,6 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   plan.clear();
 
   std::vector<geometry_msgs::PoseStamped> goals;
-
 
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_);
@@ -320,8 +328,9 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
 bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamped& observation_pose, const double desired_distance, geometry_msgs::PoseStamped& new_observation_pose)
 {
-  this->setupMapData();
-  resetMaps();
+  // We call this from inside the planner, so map data setup and reset already happened
+  //this->setupMapData();
+  //resetMaps();
 
   unsigned int mxs,mys;
   costmap_.worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
@@ -407,6 +416,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
     //If we get back the original observation pose (or another one very close to it), return that
     if ((closest_point_world - original_goal_pose).norm() < (costmap_.getResolution() * 1.5)){
         new_observation_pose.pose = observation_pose.pose;
+        ROS_INFO("Observation pose unchanged");
     }else{
 
         new_observation_pose.pose.position.x = closest_point_world.x();
@@ -421,11 +431,12 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         new_observation_pose.pose.orientation.x = 0.0;
         new_observation_pose.pose.orientation.y = 0.0;
         new_observation_pose.pose.orientation.z = sin(angle*0.5);
-
+        ROS_INFO("Observation pose moved away from wall");
     }
 
     return true;
   }else{
+      ROS_ERROR("Couldn't find observation pose for given point.");
     return false;
   }
 }

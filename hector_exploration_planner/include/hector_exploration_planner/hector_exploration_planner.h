@@ -58,7 +58,7 @@ public:
    * @param goal The goal point (Use orientation quaternion all 0 to let exploration find goal point)
    * @param plan The generated plan
    */
-  bool makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
+  bool makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan);
 
   /**
     * Given a start point, finds a frontier between known and unknown space and generates a plan to go there
