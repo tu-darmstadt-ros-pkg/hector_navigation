@@ -283,7 +283,7 @@ void ElevationMapping::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& poi
             continue;
 
         // check min/max height
-        if(elevation_map_meta.min_elevation+local_map_transform.getOrigin().z() >= pt_cloud.z || elevation_map_meta.max_elevation+local_map_transform.getOrigin().z() <= pt_cloud.z)
+        if(elevation_map_meta.min_elevation+local_map_transform.getOrigin().z() > pt_cloud.z || elevation_map_meta.max_elevation+local_map_transform.getOrigin().z() < pt_cloud.z)
             continue;
 
         // allign grid points
