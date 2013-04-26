@@ -70,7 +70,7 @@ public:
     void timerCallback(const ros::TimerEvent& event);
 
 private:
-    ros::NodeHandle nHandle;
+    ros::NodeHandle nHandle, pnHandle;
 
     ros::Publisher pub_cost_map;
 

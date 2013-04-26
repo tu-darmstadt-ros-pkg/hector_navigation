@@ -11,45 +11,45 @@
 #define USE_ELEVATION_MAP_ONLY 1
 #define USE_GRID_AND_ELEVATION_MAP 2
 
-CostMapCalculation::CostMapCalculation() : nHandle("~")
+CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
 {
     int width, height;
     double grid_res_xy;
 
-    nHandle.param("elevation_resolution", grid_res_z, 0.01); //[m]
+    pnHandle.param("elevation_resolution", grid_res_z, 0.01); //[m]
 
-    nHandle.param("max_grid_size_x", width, 1024); //[cell]
+    pnHandle.param("max_grid_size_x", width, 1024); //[cell]
     cost_map.info.width = width;
-    nHandle.param("max_grid_size_y", height, 1024); //[cell]
+    pnHandle.param("max_grid_size_y", height, 1024); //[cell]
     cost_map.info.height = height;
-    nHandle.param("map_resolution", grid_res_xy, 0.05); //[m]
+    pnHandle.param("map_resolution", grid_res_xy, 0.05); //[m]
     cost_map.info.resolution = grid_res_xy;
-    nHandle.param("origin_x",cost_map.info.origin.position.x, -(double)cost_map.info.width*(double)cost_map.info.resolution/2.0); //[m]
-    nHandle.param("origin_y",cost_map.info.origin.position.y, -(double)cost_map.info.height*(double)cost_map.info.resolution/2.0); //[m]
-    nHandle.param("origin_z",cost_map.info.origin.position.z, 0.0); //[m]
-    nHandle.param("orientation_x",cost_map.info.origin.orientation.x, 0.0); //[]
-    nHandle.param("orientation_y",cost_map.info.origin.orientation.y, 0.0); //[]
-    nHandle.param("orientation_z",cost_map.info.origin.orientation.z, 0.0); //[]
-    nHandle.param("orientation_w",cost_map.info.origin.orientation.w, 1.0); //[]
+    pnHandle.param("origin_x",cost_map.info.origin.position.x, -(double)cost_map.info.width*(double)cost_map.info.resolution/2.0); //[m]
+    pnHandle.param("origin_y",cost_map.info.origin.position.y, -(double)cost_map.info.height*(double)cost_map.info.resolution/2.0); //[m]
+    pnHandle.param("origin_z",cost_map.info.origin.position.z, 0.0); //[m]
+    pnHandle.param("orientation_x",cost_map.info.origin.orientation.x, 0.0); //[]
+    pnHandle.param("orientation_y",cost_map.info.origin.orientation.y, 0.0); //[]
+    pnHandle.param("orientation_z",cost_map.info.origin.orientation.z, 0.0); //[]
+    pnHandle.param("orientation_w",cost_map.info.origin.orientation.w, 1.0); //[]
 
-    nHandle.param("initial_free_cells_radius", initial_free_cells_radius, 0.30); //[m]
-    nHandle.param("update_radius", update_radius_world, 4.0); //[m]
-    nHandle.param("max_delta_elevation", max_delta_elevation, 0.07); //[m]
+    pnHandle.param("initial_free_cells_radius", initial_free_cells_radius, 0.30); //[m]
+    pnHandle.param("update_radius", update_radius_world, 4.0); //[m]
+    pnHandle.param("max_delta_elevation", max_delta_elevation, 0.07); //[m]
 
-    nHandle.param("map_frame_id", map_frame_id,std::string("/map"));
-    nHandle.param("local_map_frame_id", local_map_frame_id,std::string("/base_footprint"));
-    nHandle.param("cost_map_topic", cost_map_topic, std::string("/cost_map"));
-    nHandle.param("elevation_map_topic", elevation_map_topic, std::string("/elevation_map_local"));
-    nHandle.param("grid_map_topic", grid_map_topic, std::string("/scanmatcher_map"));
+    pnHandle.param("map_frame_id", map_frame_id,std::string("map"));
+    pnHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_footprint"));
+    pnHandle.param("cost_map_topic", cost_map_topic, std::string("cost_map"));
+    pnHandle.param("elevation_map_topic", elevation_map_topic, std::string("elevation_map_local"));
+    pnHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
 
-    nHandle.param("use_elevation_map", use_elevation_map, true);
-    nHandle.param("use_grid_map", use_grid_map, true);
-    nHandle.param("allow_kinect_to_clear_occupied_cells", allow_kinect_to_clear_occupied_cells, true);
-    nHandle.param("max_clear_size", max_clear_size, 2);
+    pnHandle.param("use_elevation_map", use_elevation_map, true);
+    pnHandle.param("use_grid_map", use_grid_map, true);
+    pnHandle.param("allow_kinect_to_clear_occupied_cells", allow_kinect_to_clear_occupied_cells, true);
+    pnHandle.param("max_clear_size", max_clear_size, 2);
 
-    nHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
+    pnHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
-    nHandle.param("sysMsgTopic", paramSysMsgTopic, std::string("/syscommand"));
+    pnHandle.param("sysMsgTopic", paramSysMsgTopic, std::string("syscommand"));
 
     cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
     elevation_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
@@ -73,12 +73,12 @@ CostMapCalculation::CostMapCalculation() : nHandle("~")
     sub_elevation_map = nHandle.subscribe(elevation_map_topic,10,&CostMapCalculation::callbackElevationMap,this);
     sub_grid_map = nHandle.subscribe(grid_map_topic,10,&CostMapCalculation::callbackGridMap,this);
 
-    sub_map_info = nHandle.subscribe("/map_metadata",1,&CostMapCalculation::updateMapParamsCallback,this);
+    sub_map_info = nHandle.subscribe("map_metadata",1,&CostMapCalculation::updateMapParamsCallback,this);
 
     sub_sysMessage = nHandle.subscribe(paramSysMsgTopic, 10, &CostMapCalculation::sysMessageCallback, this);
     dyn_rec_server_.setCallback(boost::bind(&CostMapCalculation::dynRecParamCallback, this, _1, _2));
 
-    timer = nHandle.createTimer(ros::Duration(1.0/costmap_pub_freq), &CostMapCalculation::timerCallback,this);
+    timer = pnHandle.createTimer(ros::Duration(1.0/costmap_pub_freq), &CostMapCalculation::timerCallback,this);
 
     ROS_INFO("HectorCM: is up and running.");
 
