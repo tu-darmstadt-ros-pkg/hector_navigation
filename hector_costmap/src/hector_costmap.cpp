@@ -36,11 +36,11 @@ CostMapCalculation::CostMapCalculation() : nHandle("~")
     nHandle.param("update_radius", update_radius_world, 4.0); //[m]
     nHandle.param("max_delta_elevation", max_delta_elevation, 0.07); //[m]
 
-    nHandle.param("map_frame_id", map_frame_id,std::string("map"));
-    nHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_footprint"));
-    nHandle.param("cost_map_topic", cost_map_topic, std::string("cost_map"));
-    nHandle.param("elevation_map_topic", elevation_map_topic, std::string("elevation_map_local"));
-    nHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
+    nHandle.param("map_frame_id", map_frame_id,std::string("/map"));
+    nHandle.param("local_map_frame_id", local_map_frame_id,std::string("/base_footprint"));
+    nHandle.param("cost_map_topic", cost_map_topic, std::string("/cost_map"));
+    nHandle.param("elevation_map_topic", elevation_map_topic, std::string("/elevation_map_local"));
+    nHandle.param("grid_map_topic", grid_map_topic, std::string("/scanmatcher_map"));
 
     nHandle.param("use_elevation_map", use_elevation_map, true);
     nHandle.param("use_grid_map", use_grid_map, true);
@@ -49,7 +49,7 @@ CostMapCalculation::CostMapCalculation() : nHandle("~")
 
     nHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
-    nHandle.param("sysMsgTopic", paramSysMsgTopic, std::string("syscommand"));
+    nHandle.param("sysMsgTopic", paramSysMsgTopic, std::string("/syscommand"));
 
     cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
     elevation_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
