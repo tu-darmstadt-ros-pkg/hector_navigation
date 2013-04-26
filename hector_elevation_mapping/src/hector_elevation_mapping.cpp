@@ -64,7 +64,7 @@ void ElevationMapping::onInit()
     nPrivateHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
     nPrivateHandle.param("pose_update_topic",pose_update_topic,std::string("poseupdate"));
 
-    nPrivateHandle.param("sysMsgTopic", paramSysMsgTopic, std::string("syscommand"));
+    nPrivateHandle.param("sys_msg_topic", sys_msg_topic, std::string("syscommand"));
 
     nPrivateHandle.param("poseupdate_pub_period",poseupdate_pub_period,1.0); //[s]
     nPrivateHandle.param("poseupdate_height_covariance",poseupdate_height_covariance,0.25); //[m²]
@@ -76,7 +76,7 @@ void ElevationMapping::onInit()
     cell_variance = std::vector<double>(elevation_map_meta.width * elevation_map_meta.height,std::numeric_limits<double>::max());
 
     sub_pointCloud = nHandle.subscribe(point_cloud_topic,1,&ElevationMapping::cloudCallback,this);
-    sub_sysMessage = nHandle.subscribe(paramSysMsgTopic, 10, &ElevationMapping::sysMessageCallback, this);
+    sub_sysMessage = nHandle.subscribe(sys_msg_topic, 10, &ElevationMapping::sysMessageCallback, this);
     sub_grid_map_info = nHandle.subscribe(grid_map_topic + "_metadata",1,&ElevationMapping::updateParamsCallback,this);
 
     pub_local_map = nHandle.advertise<hector_elevation_msgs::ElevationGrid>(local_elevation_map_topic, 1, true);

@@ -12,7 +12,7 @@
     <param name="gloabl_elevation_map_topic" value="elevation_map_global" />
     <param name="point_cloud_topic" value="openni/depth/points"/>
     <param name="grid_map_topic" value="scanmatcher_map"/>
-    <param name="sysMsgTopic" value="syscommand" />
+    <param name="sys_msg_topic" value="syscommand" />
     <param name="publish_poseupdate" value="false" />
     <param name="poseupdate_pub_period" value="1.0" />
     <param name="poseupdate_height_covariance" value="0.25" />

@@ -96,7 +96,7 @@ private:
     int poseupdate_used_pattern_size;
 
     std::string sensor_frame_id, map_frame_id, local_map_frame_id;
-    std::string grid_map_topic, local_elevation_map_topic, global_elevation_map_topic, point_cloud_topic, paramSysMsgTopic, pose_update_topic;
+    std::string grid_map_topic, local_elevation_map_topic, global_elevation_map_topic, point_cloud_topic, sys_msg_topic, pose_update_topic;
 
 };
 }
