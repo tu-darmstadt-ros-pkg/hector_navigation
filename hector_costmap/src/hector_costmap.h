@@ -12,7 +12,10 @@
 
 #include <cv_bridge/cv_bridge.h>
 
-#include <vector>
+#include "pcl/point_types.h"
+#include <pcl/filters/crop_box.h>
+#include "pcl_ros/point_cloud.h"
+#include <pcl_ros/transforms.h>
 
 #include <hector_map_tools/HectorMapTools.h>
 
@@ -20,7 +23,6 @@
 
 #include <dynamic_reconfigure/server.h>
 #include <hector_costmap/CostMapCalculationConfig.h>
-
 
 
 class CostMapCalculation{
@@ -38,13 +40,19 @@ public:
     */
     void updateMapParamsCallback(const nav_msgs::MapMetaData& map_meta_data);
 
-    /// callbackElevationMap get called if a new elevation map is avaible
+    /// callbackElevationMap get called if a new elevation map is available
     /**
-    * \param [in] elevation_map_msg stores elevation map data as a 2.5D grid
+    * \param [in] elevation_map_msg stores an elevation map as a 2.5D grid
     */
     void callbackElevationMap(const hector_elevation_msgs::ElevationGridConstPtr& elevation_map_msg);
 
-    /// callbackGridMap get called if a new 2D grid map is avaible
+    /// callbackOctoMap get called if a new octo map is available
+    /**
+    * \param [in] octo_map_msg stores an octo map as a 3D point cloud
+    */
+    void callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr &octo_map_msg);
+
+    /// callbackGridMap get called if a new 2D grid map is available
     /**
     * \param [in] grid_map_msg stores 2D grid map data
     */
@@ -76,6 +84,7 @@ private:
 
     ros::Subscriber sub_elevation_map;
     ros::Subscriber sub_grid_map;
+    ros::Subscriber sub_octo_map;
     ros::Subscriber sub_sysMessage;
     ros::Subscriber sub_map_info;
 
@@ -91,17 +100,20 @@ private:
     double grid_res_z;
     int elevation_zero_level;
     double max_delta_elevation;
-    bool use_elevation_map, use_grid_map, received_grid_map, received_elevation_map, allow_kinect_to_clear_occupied_cells;
+    bool use_elevation_map, use_grid_map, use_octo_map, received_grid_map, received_elevation_map, received_octo_map, allow_kinect_to_clear_occupied_cells;
     int max_clear_size;
     double costmap_pub_freq;
 
+    double octomap_slize_min_height, octomap_slize_max_height;
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr sliced_cloud;
     nav_msgs::OccupancyGridConstPtr grid_map_msg_;
 
-    nav_msgs::OccupancyGrid cost_map, elevation_cost_map;
+    nav_msgs::OccupancyGrid cost_map, elevation_cost_map, octo_cost_map;
 
     cv::Mat grid_map_, elevation_map_, elevation_map_filtered,elevation_cost_map_;
 
-    std::string cost_map_topic, elevation_map_topic, grid_map_topic, paramSysMsgTopic;
+    std::string cost_map_topic, elevation_map_topic, grid_map_topic, octo_map_topic, sys_msg_topic;
     std::string map_frame_id,local_map_frame_id;
 
     Eigen::Vector2i min_index, max_index;
