@@ -101,7 +101,7 @@ private:
     double grid_res_z;
     int elevation_zero_level;
     double max_delta_elevation;
-    bool use_elevation_map, use_grid_map, use_octo_map, received_grid_map, received_elevation_map, received_octo_map, allow_kinect_to_clear_occupied_cells;
+    bool use_elevation_map, use_grid_map, use_octo_map, received_grid_map, received_elevation_map, received_octo_map, allow_kinect_to_clear_occupied_cells, use_negative_step_detection;
     int max_clear_size;
     double costmap_pub_freq;
     double negative_step_detection_max_aera;

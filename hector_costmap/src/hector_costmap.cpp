@@ -50,11 +50,12 @@ CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
     pnHandle.param("use_octo_map", use_octo_map, true);
     pnHandle.param("allow_kinect_to_clear_occupied_cells", allow_kinect_to_clear_occupied_cells, true);
     pnHandle.param("max_clear_size", max_clear_size, 2);
-    pnHandle.param("negative_step_detection_max_aera", negative_step_detection_max_aera, 100.0);
+    pnHandle.param("use_negative_step_detection",use_negative_step_detection, false);
+    pnHandle.param("negative_step_detection_aera", negative_step_detection_aera, 0.25);
 
     pnHandle.param("octo_map_topic", octo_map_topic,std::string("hector_octomap_server/octomap_point_cloud_centers"));
-    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.90); //[m]
-    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 1.10); //[m]
+    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.70); //[m]
+    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 0.80); //[m]
 
     pnHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
@@ -151,7 +152,8 @@ void CostMapCalculation::dynRecParamCallback(hector_costmap::CostMapCalculationC
     costmap_pub_freq = config.costmap_pub_freq;
     octomap_slize_min_height = config.octomap_slize_min_height;
     octomap_slize_max_height = config.octomap_slize_max_height;
-    negative_step_detection_max_aera = config.negative_step_detection_max_aera;
+    use_negative_step_detection = config.use_negative_step_detection;
+    negative_step_detection_aera = config.negative_step_detection_aera;
 
     if(use_elevation_map)
         sub_elevation_map = nHandle.subscribe(elevation_map_topic,10,&CostMapCalculation::callbackElevationMap,this);
@@ -285,32 +287,35 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
     }
 
     /// negative step detection
-    //cv::Mat map = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8U, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
+    if(use_negative_step_detection)
+    {
+        cv::Mat map = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8U, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
 
-    //cv::Rect rect(min_index(0),min_index(1),max_index(0)-min_index(0),max_index(1)-min_index(1));
-    //cv::Mat roi(map,rect);
+        cv::Rect rect(min_index(0),min_index(1),max_index(0)-min_index(0),max_index(1)-min_index(1));
+        cv::Mat roi(map,rect);
 
-    //cv::Mat map_binarized;
-    //cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
+        cv::Mat map_binarized;
+        cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
 
-    //cv::imshow("binarized", map_binarized);
-    //cv::waitKey(50);
+        //cv::imshow("binarized", map_binarized);
+        //cv::waitKey(50);
 
-    //std::vector<std::vector<cv::Point> > contours;
-    //cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
+        std::vector<std::vector<cv::Point> > contours;
+        cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
 
-    //for(int i=0; i<contours.size();i++)
-    //{
-    //    ROS_DEBUG("HectorCM: Filled area size: %d",cv::contourArea(contours[i]));
-    //    if(cv::contourArea(contours[i]) > negative_step_detection_max_aera/cost_map.info.resolution/cost_map.info.resolution)
-    //        contours.erase(contours.begin()+i);
-    //}
+        for(int i=0; i<contours.size();i++)
+        {
+            ROS_DEBUG("HectorCM: Filled area size: %d",cv::contourArea(contours[i]));
+            if(cv::contourArea(contours[i]) > negative_step_detection_aera/cost_map.info.resolution/cost_map.info.resolution)
+                contours.erase(contours.begin()+i);
+        }
 
-    //cv::Mat map2 = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8S, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
-    //cv::fillPoly(map,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
+        cv::Mat map2 = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8S, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
+        cv::fillPoly(map2,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
 
-    //cv::imshow("filled_map", map);
-    //cv::waitKey(50);
+        //cv::imshow("filled_map", map2);
+        //cv::waitKey(50);
+    }
 
     // set elevation map received flag
     received_elevation_map = true;
