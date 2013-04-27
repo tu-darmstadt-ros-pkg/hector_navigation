@@ -14,8 +14,8 @@
     <param name="local_map_frame_id" value="base_footprint" />
     <param name="use_octo_map" value="false" />
     <param name="octo_map_topic" value="hector_octomap_server/octomap_point_cloud_centers" />
-    <param name="octomap_slize_min_height" value="0.4" />
-    <param name="octomap_slize_max_height" value="0.6" />
+    <param name="octomap_slize_min_height" value="0.6" />
+    <param name="octomap_slize_max_height" value="0.8" />
     <param name="sys_msg_topic" value="syscommand" />
     <param name="costmap_pub_freq" value="4.0" />
 <!-- Not necessary to set, set by scanmatcher -->

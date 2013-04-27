@@ -52,8 +52,8 @@ CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
     pnHandle.param("max_clear_size", max_clear_size, 2);
 
     pnHandle.param("octo_map_topic", octo_map_topic,std::string("hector_octomap_server/octomap_point_cloud_centers"));
-    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.40); //[m]
-    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 0.60); //[m]
+    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.60); //[m]
+    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 0.80); //[m]
 
     pnHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
@@ -329,22 +329,27 @@ void CostMapCalculation::callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr&
     if(!computeWindowIndices(octo_map_msg->header.stamp, update_radius_world))
         return;
 
+    Eigen::Vector2f world_coords;
     // define your cube with two points in space:
     Eigen::Vector4f minPoint;
-    minPoint[0]=min_index(0);  // define minimum point x
-    minPoint[1]=min_index(1);  // define minimum point y
+    world_coords = world_map_transform.getC1Coords(min_index.cast<float>());
+    minPoint[0]=world_coords(0);  // define minimum point x
+    minPoint[1]=world_coords(1);  // define minimum point y
     minPoint[2]=octomap_slize_min_height+local_map_transform.getOrigin().z(); // define minimum point z
 
     Eigen::Vector4f maxPoint;
-    minPoint[0]=max_index(0);  // define max point x
-    minPoint[1]=max_index(1);  // define max point y
-    minPoint[2]=octomap_slize_max_height+local_map_transform.getOrigin().z(); // define max point z
+    world_coords = world_map_transform.getC1Coords(max_index.cast<float>());
+    maxPoint[0]=world_coords(0);  // define max point x
+    maxPoint[1]=world_coords(1);  // define max point y
+    maxPoint[2]=octomap_slize_max_height+local_map_transform.getOrigin().z(); // define max point z
 
     pcl::CropBox<pcl::PointXYZ> cropFilter;
     cropFilter.setInputCloud (octo_map_cloud);
     cropFilter.setMin(minPoint);
     cropFilter.setMax(maxPoint);
     cropFilter.filter (*sliced_cloud);
+
+    ROS_DEBUG("Octomap slice size: %d", sliced_cloud->size());
 
     // iterate trough all points
     for (unsigned int k = 0; k < sliced_cloud->size(); ++k)
@@ -418,7 +423,10 @@ void CostMapCalculation::callbackGridMap(const nav_msgs::OccupancyGridConstPtr& 
         {
             calculateCostMap(USE_GRID_AND_OCTO_MAP);
         }
-        calculateCostMap(USE_GRID_MAP_ONLY);
+        else
+        {
+            calculateCostMap(USE_GRID_MAP_ONLY);
+        }
     }
 }
 
@@ -636,6 +644,9 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                         if(elevation_cost_map.data[index] == OCCUPIED_CELL)
                         {
                             // cell is occupied
+
+                            ROS_DEBUG("Cell is occupied by octo map"); 
+
                             cost_map.data[index] = OCCUPIED_CELL;
                         }
                         else
