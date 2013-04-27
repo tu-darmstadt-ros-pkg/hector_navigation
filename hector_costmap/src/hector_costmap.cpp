@@ -53,8 +53,8 @@ CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
     pnHandle.param("negative_step_detection_max_aera", negative_step_detection_max_aera, 100.0);
 
     pnHandle.param("octo_map_topic", octo_map_topic,std::string("hector_octomap_server/octomap_point_cloud_centers"));
-    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.60); //[m]
-    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 0.80); //[m]
+    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.90); //[m]
+    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 1.10); //[m]
 
     pnHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
@@ -100,6 +100,8 @@ CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
     timer = pnHandle.createTimer(ros::Duration(1.0/costmap_pub_freq), &CostMapCalculation::timerCallback,this);
 
     ROS_INFO("HectorCM: is up and running.");
+
+    pub_octo_slice = pnHandle.advertise<sensor_msgs::PointCloud2>("octo_slice",1,true);
 
     ros::spin();
 }
@@ -291,7 +293,7 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
     cv::Mat map_binarized;
     cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
 
-    //cv::imshow("binarized", map_binarized);
+    cv::imshow("binarized", map_binarized);
     //cv::waitKey(50);
 
     std::vector<std::vector<cv::Point> > contours;
@@ -305,10 +307,10 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
     }
 
     //cv::Mat map2 = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8S, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
-    cv::fillPoly(map,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
+    //cv::fillPoly(map,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
 
-//    //cv::imshow("filled_map", map);
-//    //cv::waitKey(50);
+    cv::imshow("filled_map", map);
+    cv::waitKey(50);
 
     // set elevation map received flag
     received_elevation_map = true;
@@ -380,6 +382,7 @@ void CostMapCalculation::callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr&
     cropFilter.filter (*sliced_cloud);
 
     ROS_DEBUG("HectorCM: octomap slice size: %d", sliced_cloud->size());
+    pub_octo_slice.publish(sliced_cloud);
 
     // iterate trough all points
     for (unsigned int k = 0; k < sliced_cloud->size(); ++k)

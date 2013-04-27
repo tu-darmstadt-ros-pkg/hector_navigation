@@ -81,6 +81,7 @@ private:
     ros::NodeHandle nHandle, pnHandle;
 
     ros::Publisher pub_cost_map;
+    ros::Publisher pub_octo_slice;
 
     ros::Subscriber sub_elevation_map;
     ros::Subscriber sub_grid_map;
