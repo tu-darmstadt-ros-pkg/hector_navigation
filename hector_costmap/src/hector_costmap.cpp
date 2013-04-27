@@ -14,7 +14,7 @@
 #define USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP 4
 
 
-CostMapCalculation::CostMapCalculation() : pnHandle("~"), nHandle()
+CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 {
     int width, height;
     double grid_res_xy;
@@ -303,9 +303,9 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
         std::vector<std::vector<cv::Point> > contours;
         cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
 
-        for(int i=0; i<contours.size();i++)
+        for(int i=0; i<(int)contours.size();i++)
         {
-            ROS_DEBUG("HectorCM: Filled area size: %d",cv::contourArea(contours[i]));
+            ROS_DEBUG("HectorCM: Filled area size: %f",cv::contourArea(contours[i]));
             if(cv::contourArea(contours[i]) > negative_step_detection_aera/cost_map.info.resolution/cost_map.info.resolution)
                 contours.erase(contours.begin()+i);
         }
@@ -386,7 +386,7 @@ void CostMapCalculation::callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr&
     cropFilter.setMax(maxPoint);
     cropFilter.filter (*sliced_cloud);
 
-    ROS_DEBUG("HectorCM: octomap slice size: %d", sliced_cloud->size());
+    ROS_DEBUG("HectorCM: octomap slice size: %d", (int)sliced_cloud->size());
     pub_octo_slice.publish(sliced_cloud);
 
     // iterate trough all points
