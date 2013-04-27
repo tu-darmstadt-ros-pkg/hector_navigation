@@ -103,7 +103,7 @@ private:
     bool use_elevation_map, use_grid_map, use_octo_map, received_grid_map, received_elevation_map, received_octo_map, allow_kinect_to_clear_occupied_cells;
     int max_clear_size;
     double costmap_pub_freq;
-
+    double negative_step_detection_max_aera;
     double octomap_slize_min_height, octomap_slize_max_height;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr sliced_cloud;
