@@ -560,9 +560,9 @@ bool CostMapCalculation::calculateCostMap(char map_level)
     }
     case USE_GRID_AND_OCTO_MAP:
     {
-        // cost map based on elevation and grid map
+        // cost map based on octo map and grid map
 
-        ROS_DEBUG("HectorCM: compute costmap based on grid and elevation map");
+        ROS_DEBUG("HectorCM: compute costmap based on grid and octo map");
 
         // loop through each element
         for (int v = min_index(1); v < max_index(1); ++v)
@@ -644,9 +644,6 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                         if(elevation_cost_map.data[index] == OCCUPIED_CELL)
                         {
                             // cell is occupied
-
-                            ROS_DEBUG("Cell is occupied by octo map"); 
-
                             cost_map.data[index] = OCCUPIED_CELL;
                         }
                         else
