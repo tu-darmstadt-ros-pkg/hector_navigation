@@ -285,32 +285,32 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
     }
 
     /// negative step detection
-    cv::Mat map = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8U, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
+    //cv::Mat map = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8U, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
 
-    cv::Rect rect(min_index(0),min_index(1),max_index(0)-min_index(0),max_index(1)-min_index(1));
-    cv::Mat roi(map,rect);
+    //cv::Rect rect(min_index(0),min_index(1),max_index(0)-min_index(0),max_index(1)-min_index(1));
+    //cv::Mat roi(map,rect);
 
-    cv::Mat map_binarized;
-    cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
+    //cv::Mat map_binarized;
+    //cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
 
-    cv::imshow("binarized", map_binarized);
+    //cv::imshow("binarized", map_binarized);
     //cv::waitKey(50);
 
-    std::vector<std::vector<cv::Point> > contours;
-    cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
+    //std::vector<std::vector<cv::Point> > contours;
+    //cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
 
-    for(int i=0; i<contours.size();i++)
-    {
-        ROS_DEBUG("HectorCM: Filled area size: %d",cv::contourArea(contours[i]));
-        if(cv::contourArea(contours[i]) > negative_step_detection_max_aera/cost_map.info.resolution/cost_map.info.resolution)
-            contours.erase(contours.begin()+i);
-    }
+    //for(int i=0; i<contours.size();i++)
+    //{
+    //    ROS_DEBUG("HectorCM: Filled area size: %d",cv::contourArea(contours[i]));
+    //    if(cv::contourArea(contours[i]) > negative_step_detection_max_aera/cost_map.info.resolution/cost_map.info.resolution)
+    //        contours.erase(contours.begin()+i);
+    //}
 
     //cv::Mat map2 = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8S, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
     //cv::fillPoly(map,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
 
-    cv::imshow("filled_map", map);
-    cv::waitKey(50);
+    //cv::imshow("filled_map", map);
+    //cv::waitKey(50);
 
     // set elevation map received flag
     received_elevation_map = true;
