@@ -401,7 +401,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   //std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
   //std::cout << "pos: " << closest_x << " , " << closest_y << "\n";
 
-  // If closest vals are still -1, we didn't find a position
+  // Found valid pose if both coords are larger than -1
   if ((closest_x > -1) && (closest_y > -1)){
 
     Eigen::Vector2d closest_point_world;
@@ -416,6 +416,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
     //If we get back the original observation pose (or another one very close to it), return that
     if ((closest_point_world - original_goal_pose).norm() < (costmap_.getResolution() * 1.5)){
         new_observation_pose.pose = observation_pose.pose;
+        new_observation_pose.pose.position.z = 0.0;
         ROS_INFO("Observation pose unchanged");
     }else{
 
@@ -436,7 +437,8 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
     return true;
   }else{
-      ROS_ERROR("Couldn't find observation pose for given point.");
+    // If closest vals are still -1, we didn't find a position
+    ROS_ERROR("Couldn't find observation pose for given point.");
     return false;
   }
 }
