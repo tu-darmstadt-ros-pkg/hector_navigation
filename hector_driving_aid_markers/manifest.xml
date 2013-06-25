@@ -1,0 +1,16 @@
+<package>
+  <description brief="hector_driving_aid_markers">
+
+     hector_driving_aid_markers
+
+  </description>
+  <author>kohlbrecher</author>
+  <license>BSD</license>
+  <review status="unreviewed" notes=""/>
+  <url>http://ros.org/wiki/hector_driving_aid_markers</url>
+  <depend package="visualization_msgs"/>
+  <depend package="roscpp"/>
+
+</package>
+
+
