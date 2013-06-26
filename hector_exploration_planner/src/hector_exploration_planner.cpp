@@ -781,8 +781,6 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     ROS_DEBUG("[hector_exploration_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
     is_goal_array_[goal_point] = true;
     myqueue.push(goal_point);
-
-
   }
 
   // exploration transform algorithm
@@ -812,7 +810,6 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
         }
       }
     }
-
 
     // if exploration_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
     if(minimum < exploration_trans_array_[point] || is_goal_array_[point]){
@@ -1148,7 +1145,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         const geometry_msgs::PoseStamped& pose = traj_vector[i];
         unsigned int x,y;
         costmap_.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
-        unsigned m_point = costmap_.getIndex(x,y);
+        unsigned int m_point = costmap_.getIndex(x,y);
 
         double dx = lastPose.pose.position.x - pose.pose.position.x;
         double dy = lastPose.pose.position.y - pose.pose.position.y;
