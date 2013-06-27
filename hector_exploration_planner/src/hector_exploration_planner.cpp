@@ -802,14 +802,12 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     // calculate the minimum exploration value of all adjacent cells
     if(!is_goal_array_[point]){
 
-      const unsigned int point_cell_danger = cellDanger(point);
-
       for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger) < minimum){
-          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger;
+        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(point)) < minimum){
+          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(point);
         }
-        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger) < minimum){
-          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger;
+        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(point)) < minimum){
+          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(point);
         }
       }
       point_newvalue = minimum;
