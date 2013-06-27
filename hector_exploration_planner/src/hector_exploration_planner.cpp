@@ -143,9 +143,14 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 
   // do exploration? (not used anymore? -> call doExploration())
 
-  if ((original_goal.pose.orientation.w == 0.0) && (original_goal.pose.orientation.x == 0.0) &&
-  (original_goal.pose.orientation.y == 0.0) && (original_goal.pose.orientation.z == 0.0)){
-      ROS_ERROR("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
+  if (   (original_goal.pose.orientation.w == 0.0)
+      && (original_goal.pose.orientation.x == 0.0)
+      && (original_goal.pose.orientation.y == 0.0)
+      && (original_goal.pose.orientation.z == 0.0)
+      && (original_goal.pose.position.x == 0.0)
+      && (original_goal.pose.position.y == 0.0)
+      && (original_goal.pose.position.z == 0.0)){
+      ROS_WARN("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
       return doExploration(start,plan);
   }
 
@@ -764,7 +769,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     }
 
     unsigned int init_cost = 0;
-    if(useAnglePenalty){
+    if(false){
       init_cost = angleDanger(angleDifference(start,goals[i])) * getDistanceWeight(start,goals[i]);
     }
 
@@ -772,12 +777,14 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
 
     // do not punish previous frontiers (oscillation)
+    /*
     if(isValid(previous_goal_)){
       if(isSameFrontier(goal_point, previous_goal_)){
         ROS_DEBUG("[hector_exploration_planner] same frontier: init with 0");
         exploration_trans_array_[goal_point] = 0;
       }
     }
+    */
     ROS_DEBUG("[hector_exploration_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
     is_goal_array_[goal_point] = true;
     myqueue.push(goal_point);
