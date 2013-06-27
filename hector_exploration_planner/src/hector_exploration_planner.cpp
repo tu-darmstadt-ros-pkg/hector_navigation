@@ -790,6 +790,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     int point = myqueue.front();
     myqueue.pop();
 
+    unsigned int point_newvalue = exploration_trans_array_[point];
     unsigned int minimum = exploration_trans_array_[point];
 
     int straightPoints[4];
@@ -811,19 +812,19 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
           minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger;
         }
       }
+      point_newvalue = minimum;
+    }
 
+    // if exploration_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
+    if((point_newvalue < exploration_trans_array_[point]) || (is_goal_array_[point])){
+      exploration_trans_array_[point] = point_newvalue;
 
-      // if exploration_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
-      if(minimum < exploration_trans_array_[point]){
-        exploration_trans_array_[point] = minimum;
-
-        for(int i = 0; i < 4; ++i){
-          if(isFree(straightPoints[i]) && !is_goal_array_[straightPoints[i]]){
-            myqueue.push(straightPoints[i]);
-          }
-          if(isFree(diagonalPoints[i]) && !is_goal_array_[diagonalPoints[i]]){
-            myqueue.push(diagonalPoints[i]);
-          }
+      for(int i = 0; i < 4; ++i){
+        if(isFree(straightPoints[i]) && !is_goal_array_[straightPoints[i]]){
+          myqueue.push(straightPoints[i]);
+        }
+        if(isFree(diagonalPoints[i]) && !is_goal_array_[diagonalPoints[i]]){
+          myqueue.push(diagonalPoints[i]);
         }
       }
     }
