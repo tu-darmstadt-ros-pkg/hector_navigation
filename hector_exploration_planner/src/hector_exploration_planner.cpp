@@ -745,10 +745,6 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
-  // reset exploration transform
-  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(is_goal_array_, num_map_cells_, false);
-
   std::queue<int> myqueue;
 
   size_t num_free_goals = 0;
@@ -1229,6 +1225,12 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       if (max_exploration_trans_point < 0){
         ROS_WARN("[hector_exploration_planner]: Couldn't find max exploration transform point for inner exploration, aborting.");
         return false;
+      }
+
+      // reset exploration transform
+      for(unsigned int i = 0; i < num_map_cells_; ++i){
+        exploration_trans_array_[i] = INT_MAX;
+        is_goal_array_[i] = false;
       }
 
       geometry_msgs::PoseStamped finalFrontier;
