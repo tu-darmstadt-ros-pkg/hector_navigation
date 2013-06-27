@@ -257,7 +257,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
     tf::Stamped<tf::Pose> robotPose;
     if(!costmap_ros_->getRobotPose(robotPose)){
-      ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+      ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
     }
 
     unsigned int xm, ym;
@@ -298,7 +298,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   }
 
   // make plan
-  if(!buildexploration_trans_array_(start,goals,false)){
+  if(!buildexploration_trans_array_(start,goals,true)){
     return false;
   }
   if(!getTrajectory(start,goals,plan)){
@@ -746,25 +746,21 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
   std::queue<int> myqueue;
 
-  size_t num_free_goals = 0;
-
   // initialize goals
   for(unsigned int i = 0; i < goals.size(); ++i){
     // setup goal positions
     unsigned int mx,my;
 
     if(!costmap_.worldToMap(goals[i].pose.position.x,goals[i].pose.position.y,mx,my)){
-      //ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
-      continue;
+      ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
+      return false;
     }
 
     int goal_point = costmap_.getIndex(mx,my);
 
-    // Ignore free goal for the moment, check after iterating over all goals if there is not valid one at all
     if(!isFree(goal_point)){
-      continue;
-    }else{
-      ++num_free_goals;
+      ROS_WARN("[hector_exploration_planner] The goal coordinates are occupied! (obstacle, inflated obstacle or unknown)");
+      return false;
     }
 
     unsigned int init_cost = 0;
@@ -774,22 +770,17 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
     exploration_trans_array_[goal_point] = init_cost;
 
+
     // do not punish previous frontiers (oscillation)
-    if(useAnglePenalty && isValid(previous_goal_)){
+    if(isValid(previous_goal_)){
       if(isSameFrontier(goal_point, previous_goal_)){
         ROS_DEBUG("[hector_exploration_planner] same frontier: init with 0");
         exploration_trans_array_[goal_point] = 0;
       }
     }
-
     ROS_DEBUG("[hector_exploration_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
     is_goal_array_[goal_point] = true;
     myqueue.push(goal_point);
-  }
-
-  if (num_free_goals == 0){
-    ROS_WARN("[hector_exploration_planner] All goal coordinates for exploration transform invalid (occupied or out of bounds), aborting.");
-    return false;
   }
 
   // exploration transform algorithm
@@ -1109,7 +1100,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
         visualization_msgs::Marker marker;
         marker.header.frame_id = "map";
         marker.header.stamp = ros::Time();
-        marker.ns = "hector_exploration_planner";
+        marker.ns = "hector_global_planner";
         marker.id = id++;
         marker.type = visualization_msgs::Marker::ARROW;
         marker.action = visualization_msgs::Marker::ADD;
@@ -1147,37 +1138,23 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
     size_t size = traj_vector.size();
     ROS_DEBUG("[hector_exploration_planner] size of trajectory vector %u", (unsigned int)size);
 
-    if(size > 0){
-      geometry_msgs::PoseStamped lastPose = traj_vector[size-1];
+    if(size > 1){
+      geometry_msgs::PoseStamped lastPose = traj_vector[0];
       goals.push_back(lastPose);
+      for(size_t i = 1; i < size; ++i){
+        const geometry_msgs::PoseStamped& pose = traj_vector[i];
+        unsigned int x,y;
+        costmap_.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
+        unsigned int m_point = costmap_.getIndex(x,y);
 
-      if (size > 1){
+        double dx = lastPose.pose.position.x - pose.pose.position.x;
+        double dy = lastPose.pose.position.y - pose.pose.position.y;
 
-        // Allow collision at start in case vehicle is (very) close to wall
-        bool collision_allowed = true;
-
-        for(int i = static_cast<int>(size-2); i >= 0; --i){
-          const geometry_msgs::PoseStamped& pose = traj_vector[i];
-          unsigned int x,y;
-          costmap_.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
-          unsigned int m_point = costmap_.getIndex(x,y);
-
-          double dx = lastPose.pose.position.x - pose.pose.position.x;
-          double dy = lastPose.pose.position.y - pose.pose.position.y;
-
-          bool point_in_free_space = isFree(m_point);
-
-          // extract points with 0.5m distance (if free)
-          if(point_in_free_space){
-            if((dx*dx) + (dy*dy) > (0.5*0.5)){
-              goals.push_back(pose);
-              lastPose = pose;
-              collision_allowed = false;
-            }
-          }
-
-          if (!point_in_free_space && !collision_allowed){
-            break;
+        // extract points with 0.5m distance (if free)
+        if(isFree(m_point)){
+          if((dx*dx) + (dy*dy) > (0.5*0.5)){
+            goals.push_back(pose);
+            lastPose = pose;
           }
         }
       }
@@ -1188,15 +1165,12 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       // make exploration transform
       tf::Stamped<tf::Pose> robotPose;
       if(!costmap_ros_->getRobotPose(robotPose)){
-        ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+        ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
       }
       geometry_msgs::PoseStamped robotPoseMsg;
       tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
-      if (!buildexploration_trans_array_(robotPoseMsg, goals, false)){
-        ROS_WARN("[hector_exploration_planner]: Creating exploration transform array in find inner frontier failed, aborting.");
-        return false;
-      }
+      buildexploration_trans_array_(robotPoseMsg, goals, false);
 
       unsigned int x,y;
       costmap_.worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
@@ -1248,7 +1222,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         visualization_msgs::Marker marker;
         marker.header.frame_id = "map";
         marker.header.stamp = ros::Time();
-        marker.ns = "hector_exploration_planner";
+        marker.ns = "hector_global_planner";
         marker.id = 100;
         marker.type = visualization_msgs::Marker::ARROW;
         marker.action = visualization_msgs::Marker::ADD;
@@ -1266,7 +1240,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         marker.lifetime = ros::Duration(5,0);
         visualization_pub_.publish(marker);
       }
-      return true;
+      return !innerFrontier.empty();
     }
   }
   return false;
@@ -1349,7 +1323,7 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
 
   tf::Stamped<tf::Pose> robotPose;
   if(!costmap_ros_->getRobotPose(robotPose)){
-    ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+    ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
   }
   geometry_msgs::PoseStamped robotPoseMsg;
   tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
@@ -1364,7 +1338,7 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
   double dy = robotPoseMsg.pose.position.y - wfy;
 
   if ( (dx*dx) + (dy*dy) < (p_dist_for_goal_reached_*p_dist_for_goal_reached_)) {
-    ROS_DEBUG("[hector_exploration_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);
+    ROS_DEBUG("[hector_global_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);
     return true;
   }
   return false;
@@ -1580,7 +1554,7 @@ inline int HectorExplorationPlanner::downleft(int point){
 //        visualization_msgs::Marker marker;
 //        marker.header.frame_id = "map";
 //        marker.header.stamp = ros::Time();
-//        marker.ns = "hector_exploration_planner";
+//        marker.ns = "hector_global_planner";
 //        marker.id = i + 500;
 //        marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
 //        marker.action = visualization_msgs::Marker::ADD;
