@@ -299,7 +299,6 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
   // make plan
   if(!buildexploration_trans_array_(start,goals,false)){
-    ROS_WARN("[hector_exploration_planner] inner-exploration: Creating exploration transform failed!");
     return false;
   }
   if(!getTrajectory(start,goals,plan)){
@@ -1203,28 +1202,18 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       costmap_.worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
 
 
-
-
       // get point with maximal distance to trajectory
-      int max_exploration_trans_point = -1;
-      unsigned int max_exploration_trans_val = INT_MIN;
-
+      int max_expl_point = costmap_.getIndex(x,y);
       for(unsigned int i = 0; i < num_map_cells_; ++i){
         if(isFree(i)){
           if(exploration_trans_array_[i] < INT_MAX){
-            if(exploration_trans_array_[i] > max_exploration_trans_val){
+            if(exploration_trans_array_[i] > exploration_trans_array_[max_expl_point]){
               if(!isFrontierReached(i)){
-                max_exploration_trans_point = i;
-                max_exploration_trans_val = exploration_trans_array_[i];
+                max_expl_point = i;
               }
             }
           }
         }
-      }
-
-      if (max_exploration_trans_point < 0){
-        ROS_WARN("[hector_exploration_planner]: Couldn't find max exploration transform point for inner exploration, aborting.");
-        return false;
       }
 
       // reset exploration transform
@@ -1236,7 +1225,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       geometry_msgs::PoseStamped finalFrontier;
       unsigned int fx,fy;
       double wfx,wfy;
-      costmap_.indexToCells(max_exploration_trans_point,fx,fy);
+      costmap_.indexToCells(max_expl_point,fx,fy);
       costmap_.mapToWorld(fx,fy,wfx,wfy);
       std::string global_frame = costmap_ros_->getGlobalFrameID();
       finalFrontier.header.frame_id = global_frame;
