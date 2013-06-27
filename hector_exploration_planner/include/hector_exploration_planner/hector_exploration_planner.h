@@ -36,6 +36,8 @@
 
 #include <dynamic_reconfigure/server.h>
 
+#include <hector_exploration_planner/exploration_transform_vis.h>
+
 
 
 namespace hector_exploration_planner{
@@ -158,6 +160,8 @@ private:
   double p_same_frontier_dist_;
 
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
+
+  boost::shared_ptr<ExplorationTransformVis> vis_;
 
 };
 }

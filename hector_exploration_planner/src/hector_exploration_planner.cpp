@@ -99,6 +99,8 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   this->initialized_ = true;
   this->previous_goal_ = -1;
 
+  vis_.reset(new ExplorationTransformVis("exploration_transform"));
+
 }
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
@@ -220,6 +222,9 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   if(!buildexploration_trans_array_(start,goals,true)){
     return false;
   }
+
+  vis_->publishVisOnDemand(costmap_, exploration_trans_array_);
+
   if(!getTrajectory(start,goals,plan)){
     ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
     return doInnerExploration(start,plan);
@@ -1085,6 +1090,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     if(isFrontierReached(frontier_point)){
       frontier_is_valid = false;
     }
+
     for(size_t i = 0; i < noFrontiers.size(); ++i){
       const geometry_msgs::PoseStamped& noFrontier = noFrontiers[i];
       unsigned int mx,my;
@@ -1095,44 +1101,54 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
       }
     }
 
-    if(frontier_is_valid){
-      geometry_msgs::PoseStamped finalFrontier;
-      double wx,wy;
-      costmap_.mapToWorld(x,y,wx,wy);
-      std::string global_frame = costmap_ros_->getGlobalFrameID();
-      finalFrontier.header.frame_id = global_frame;
-      finalFrontier.pose.position.x = wx;
-      finalFrontier.pose.position.y = wy;
-      finalFrontier.pose.position.z = 0.0;
+    geometry_msgs::PoseStamped finalFrontier;
+    double wx,wy;
+    costmap_.mapToWorld(x,y,wx,wy);
+    std::string global_frame = costmap_ros_->getGlobalFrameID();
+    finalFrontier.header.frame_id = global_frame;
+    finalFrontier.pose.position.x = wx;
+    finalFrontier.pose.position.y = wy;
+    finalFrontier.pose.position.z = 0.0;
 
-      double yaw = getYawToUnknown(costmap_.getIndex(x,y));
+    double yaw = getYawToUnknown(costmap_.getIndex(x,y));
+
+    if(frontier_is_valid){
+
       finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
       frontiers.push_back(finalFrontier);
+    }
 
-      // visualization (export to method?)
-      if(visualization_requested){
-        visualization_msgs::Marker marker;
-        marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time();
-        marker.ns = "hector_exploration_planner";
-        marker.id = id++;
-        marker.type = visualization_msgs::Marker::ARROW;
-        marker.action = visualization_msgs::Marker::ADD;
-        marker.pose.position.x = wx;
-        marker.pose.position.y = wy;
-        marker.pose.position.z = 0.0;
-        marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-        marker.scale.x = 0.5;
-        marker.scale.y = 0.5;
-        marker.scale.z = 0.5;
-        marker.color.a = 1.0;
+    // visualization (export to method?)
+    if(visualization_requested){
+      visualization_msgs::Marker marker;
+      marker.header.frame_id = "map";
+      marker.header.stamp = ros::Time();
+      marker.ns = "hector_exploration_planner";
+      marker.id = id++;
+      marker.type = visualization_msgs::Marker::ARROW;
+      marker.action = visualization_msgs::Marker::ADD;
+      marker.pose.position.x = wx;
+      marker.pose.position.y = wy;
+      marker.pose.position.z = 0.0;
+      marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+      marker.scale.x = 0.2;
+      marker.scale.y = 0.2;
+      marker.scale.z = 0.2;
+      marker.color.a = 1.0;
+
+      if(frontier_is_valid){
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+      }else{
         marker.color.r = 1.0;
         marker.color.g = 0.0;
-        marker.color.b = 0.0;
-        marker.lifetime = ros::Duration(5,0);
-        visualization_pub_.publish(marker);
       }
+
+      marker.color.b = 0.0;
+      marker.lifetime = ros::Duration(5,0);
+      visualization_pub_.publish(marker);
     }
+
   }
   return !frontiers.empty();
 }
@@ -1265,9 +1281,9 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         marker.pose.position.y = wfy;
         marker.pose.position.z = 0.0;
         marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw_path);
-        marker.scale.x = 0.5;
-        marker.scale.y = 0.5;
-        marker.scale.z = 0.5;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.2;
         marker.color.a = 1.0;
         marker.color.r = 0.0;
         marker.color.g = 0.0;
