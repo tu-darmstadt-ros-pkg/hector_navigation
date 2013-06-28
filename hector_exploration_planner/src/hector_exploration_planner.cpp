@@ -420,26 +420,39 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
     new_observation_pose.header.frame_id = "map";
     new_observation_pose.header.stamp = observation_pose.header.stamp;
 
+    Eigen::Vector2d dir_vec(original_goal_pose - closest_point_world);
+
+    double distance = dir_vec.norm();
+
     //If we get back the original observation pose (or another one very close to it), return that
-    if ((closest_point_world - original_goal_pose).norm() < (costmap_.getResolution() * 1.5)){
-        new_observation_pose.pose = observation_pose.pose;
-        new_observation_pose.pose.position.z = 0.0;
-        ROS_INFO("Observation pose unchanged");
+    if (distance < (costmap_.getResolution() * 1.5)){
+      new_observation_pose.pose = observation_pose.pose;
+      new_observation_pose.pose.position.z = 0.0;
+      ROS_INFO("Observation pose unchanged");
     }else{
 
+      if (desired_distance < distance){
         new_observation_pose.pose.position.x = closest_point_world.x();
         new_observation_pose.pose.position.y = closest_point_world.y();
         new_observation_pose.pose.position.z = 0.0;
+      }else{
+        double distance_factor = desired_distance / distance;
 
-        Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_point_world[0], observation_pose.pose.position.y - closest_point_world[1]));
-        double angle = std::atan2(dir_vec.y(), dir_vec.x());
+        Eigen::Vector2d new_pos(original_goal_pose - dir_vec*distance_factor);
 
-        new_observation_pose.pose.orientation.w = cos(angle*0.5);
-        new_observation_pose.pose.orientation.x = 0.0;
-        new_observation_pose.pose.orientation.y = 0.0;
-        new_observation_pose.pose.orientation.z = sin(angle*0.5);
-        ROS_INFO("Observation pose moved away from wall");
+        new_observation_pose.pose.position.x = new_pos.x();
+        new_observation_pose.pose.position.y = new_pos.y();
+        new_observation_pose.pose.position.z = 0.0;
+      }
     }
+
+    double angle = std::atan2(dir_vec.y(), dir_vec.x());
+
+    new_observation_pose.pose.orientation.w = cos(angle*0.5);
+    new_observation_pose.pose.orientation.x = 0.0;
+    new_observation_pose.pose.orientation.y = 0.0;
+    new_observation_pose.pose.orientation.z = sin(angle*0.5);
+    ROS_INFO("Observation pose moved away from wall");
 
     return true;
   }else{
