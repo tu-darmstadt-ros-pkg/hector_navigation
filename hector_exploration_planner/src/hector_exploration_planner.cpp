@@ -99,6 +99,9 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   this->initialized_ = true;
   this->previous_goal_ = -1;
 
+  vis_.reset(new ExplorationTransformVis("exploration_transform"));
+  inner_vis_.reset(new ExplorationTransformVis("inner_exploration_transform"));
+
 }
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
@@ -143,14 +146,9 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 
   // do exploration? (not used anymore? -> call doExploration())
 
-  if (   (original_goal.pose.orientation.w == 0.0)
-      && (original_goal.pose.orientation.x == 0.0)
-      && (original_goal.pose.orientation.y == 0.0)
-      && (original_goal.pose.orientation.z == 0.0)
-      && (original_goal.pose.position.x == 0.0)
-      && (original_goal.pose.position.y == 0.0)
-      && (original_goal.pose.position.z == 0.0)){
-      ROS_WARN("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
+  if ((original_goal.pose.orientation.w == 0.0) && (original_goal.pose.orientation.x == 0.0) &&
+  (original_goal.pose.orientation.y == 0.0) && (original_goal.pose.orientation.z == 0.0)){
+      ROS_ERROR("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
       return doExploration(start,plan);
   }
 
@@ -225,6 +223,9 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   if(!buildexploration_trans_array_(start,goals,true)){
     return false;
   }
+
+  vis_->publishVisOnDemand(costmap_, exploration_trans_array_);
+
   if(!getTrajectory(start,goals,plan)){
     ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
     return doInnerExploration(start,plan);
@@ -262,7 +263,7 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
 
     tf::Stamped<tf::Pose> robotPose;
     if(!costmap_ros_->getRobotPose(robotPose)){
-      ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
+      ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
     }
 
     unsigned int xm, ym;
@@ -303,7 +304,8 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   }
 
   // make plan
-  if(!buildexploration_trans_array_(start,goals,true)){
+  if(!buildexploration_trans_array_(start,goals,false)){
+    ROS_WARN("[hector_exploration_planner] inner-exploration: Creating exploration transform failed!");
     return false;
   }
   if(!getTrajectory(start,goals,plan)){
@@ -428,7 +430,6 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         new_observation_pose.pose.position.x = closest_point_world.x();
         new_observation_pose.pose.position.y = closest_point_world.y();
         new_observation_pose.pose.position.z = 0.0;
-
 
         Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_point_world[0], observation_pose.pose.position.y - closest_point_world[1]));
         double angle = std::atan2(dir_vec.y(), dir_vec.x());
@@ -749,7 +750,13 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
+  // reset exploration transform
+  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
+  std::fill_n(is_goal_array_, num_map_cells_, false);
+
   std::queue<int> myqueue;
+
+  size_t num_free_goals = 0;
 
   // initialize goals
   for(unsigned int i = 0; i < goals.size(); ++i){
@@ -757,15 +764,17 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     unsigned int mx,my;
 
     if(!costmap_.worldToMap(goals[i].pose.position.x,goals[i].pose.position.y,mx,my)){
-      ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
-      return false;
+      //ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
+      continue;
     }
 
     int goal_point = costmap_.getIndex(mx,my);
 
+    // Ignore free goal for the moment, check after iterating over all goals if there is not valid one at all
     if(!isFree(goal_point)){
-      ROS_WARN("[hector_exploration_planner] The goal coordinates are occupied! (obstacle, inflated obstacle or unknown)");
-      return false;
+      continue;
+    }else{
+      ++num_free_goals;
     }
 
     unsigned int init_cost = 0;
@@ -775,21 +784,22 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
     exploration_trans_array_[goal_point] = init_cost;
 
-
     // do not punish previous frontiers (oscillation)
-    /*
-    if(isValid(previous_goal_)){
+    if(false && isValid(previous_goal_)){
       if(isSameFrontier(goal_point, previous_goal_)){
         ROS_DEBUG("[hector_exploration_planner] same frontier: init with 0");
         exploration_trans_array_[goal_point] = 0;
       }
     }
-    */
+
     ROS_DEBUG("[hector_exploration_planner] Goal init cost: %d, point: %d", exploration_trans_array_[goal_point], goal_point);
     is_goal_array_[goal_point] = true;
     myqueue.push(goal_point);
+  }
 
-
+  if (num_free_goals == 0){
+    ROS_WARN("[hector_exploration_planner] All goal coordinates for exploration transform invalid (occupied or out of bounds), aborting.");
+    return false;
   }
 
   // exploration transform algorithm
@@ -797,7 +807,6 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     int point = myqueue.front();
     myqueue.pop();
 
-    unsigned int point_newvalue = exploration_trans_array_[point];
     unsigned int minimum = exploration_trans_array_[point];
 
     int straightPoints[4];
@@ -809,20 +818,21 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     // calculate the minimum exploration value of all adjacent cells
     if(!is_goal_array_[point]){
 
+      const unsigned int point_cell_danger = cellDanger(point);
+
       for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(point)) < minimum){
-          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(point);
+        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger) < minimum){
+          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger;
         }
-        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(point)) < minimum){
-          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(point);
+        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger) < minimum){
+          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger;
         }
       }
-      point_newvalue = minimum;
     }
 
     // if exploration_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
-    if((point_newvalue < exploration_trans_array_[point]) || (is_goal_array_[point])){
-      exploration_trans_array_[point] = point_newvalue;
+    if(minimum < exploration_trans_array_[point] || is_goal_array_[point]){
+      exploration_trans_array_[point] = minimum;
 
       for(int i = 0; i < 4; ++i){
         if(isFree(straightPoints[i]) && !is_goal_array_[straightPoints[i]]){
@@ -833,6 +843,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
         }
       }
     }
+
   }
 
   ROS_DEBUG("[hector_exploration_planner] END: buildexploration_trans_array_");
@@ -936,6 +947,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
       }
     }
 
+    // This happens when there is no valid exploration transform data at the start point for example
     if(maxDelta == 0){
       ROS_WARN("[hector_exploration_planner] No path to the goal could be found by following gradient!");
       return false;
@@ -998,6 +1010,38 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     }
   }
 
+  tf::Stamped<tf::Pose> robotPose;
+  if(!costmap_ros_->getRobotPose(robotPose)){
+    ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+  }
+
+
+  for(unsigned int i = 0; i < allFrontiers.size(); ++i){
+    if(!isFrontierReached(allFrontiers[i])){
+      geometry_msgs::PoseStamped finalFrontier;
+      double wx,wy;
+      unsigned int mx,my;
+      costmap_.indexToCells(allFrontiers[i], mx, my);
+      costmap_.mapToWorld(mx,my,wx,wy);
+      std::string global_frame = costmap_ros_->getGlobalFrameID();
+      finalFrontier.header.frame_id = global_frame;
+      finalFrontier.pose.position.x = wx;
+      finalFrontier.pose.position.y = wy;
+      finalFrontier.pose.position.z = 0.0;
+
+      double yaw = getYawToUnknown(costmap_.getIndex(mx,my));
+
+      //if(frontier_is_valid){
+
+      finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+      frontiers.push_back(finalFrontier);
+    }
+    //}
+  }
+
+  return true;
+
   // value of the next blob
   int nextBlobValue = 1;
   std::list<int> usedBlobs;
@@ -1031,7 +1075,6 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
         if(adjBlob == blobs.begin()){
           blobMergeVal = *adjBlob;
           frontier_map_array_[currentPoint] = blobMergeVal;
-
         } else {
 
           for(unsigned int k = 0; k < allFrontiers.size(); k++){
@@ -1079,6 +1122,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     if(isFrontierReached(frontier_point)){
       frontier_is_valid = false;
     }
+
     for(size_t i = 0; i < noFrontiers.size(); ++i){
       const geometry_msgs::PoseStamped& noFrontier = noFrontiers[i];
       unsigned int mx,my;
@@ -1089,44 +1133,54 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
       }
     }
 
-    if(frontier_is_valid){
-      geometry_msgs::PoseStamped finalFrontier;
-      double wx,wy;
-      costmap_.mapToWorld(x,y,wx,wy);
-      std::string global_frame = costmap_ros_->getGlobalFrameID();
-      finalFrontier.header.frame_id = global_frame;
-      finalFrontier.pose.position.x = wx;
-      finalFrontier.pose.position.y = wy;
-      finalFrontier.pose.position.z = 0.0;
+    geometry_msgs::PoseStamped finalFrontier;
+    double wx,wy;
+    costmap_.mapToWorld(x,y,wx,wy);
+    std::string global_frame = costmap_ros_->getGlobalFrameID();
+    finalFrontier.header.frame_id = global_frame;
+    finalFrontier.pose.position.x = wx;
+    finalFrontier.pose.position.y = wy;
+    finalFrontier.pose.position.z = 0.0;
 
-      double yaw = getYawToUnknown(costmap_.getIndex(x,y));
+    double yaw = getYawToUnknown(costmap_.getIndex(x,y));
+
+    if(frontier_is_valid){
+
       finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
       frontiers.push_back(finalFrontier);
+    }
 
-      // visualization (export to method?)
-      if(visualization_requested){
-        visualization_msgs::Marker marker;
-        marker.header.frame_id = "map";
-        marker.header.stamp = ros::Time();
-        marker.ns = "hector_global_planner";
-        marker.id = id++;
-        marker.type = visualization_msgs::Marker::ARROW;
-        marker.action = visualization_msgs::Marker::ADD;
-        marker.pose.position.x = wx;
-        marker.pose.position.y = wy;
-        marker.pose.position.z = 0.0;
-        marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
-        marker.scale.x = 0.5;
-        marker.scale.y = 0.5;
-        marker.scale.z = 0.5;
-        marker.color.a = 1.0;
+    // visualization (export to method?)
+    if(visualization_requested){
+      visualization_msgs::Marker marker;
+      marker.header.frame_id = "map";
+      marker.header.stamp = ros::Time();
+      marker.ns = "hector_exploration_planner";
+      marker.id = id++;
+      marker.type = visualization_msgs::Marker::ARROW;
+      marker.action = visualization_msgs::Marker::ADD;
+      marker.pose.position.x = wx;
+      marker.pose.position.y = wy;
+      marker.pose.position.z = 0.0;
+      marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+      marker.scale.x = 0.2;
+      marker.scale.y = 0.2;
+      marker.scale.z = 0.2;
+      marker.color.a = 1.0;
+
+      if(frontier_is_valid){
+        marker.color.r = 0.0;
+        marker.color.g = 1.0;
+      }else{
         marker.color.r = 1.0;
         marker.color.g = 0.0;
-        marker.color.b = 0.0;
-        marker.lifetime = ros::Duration(5,0);
-        visualization_pub_.publish(marker);
       }
+
+      marker.color.b = 0.0;
+      marker.lifetime = ros::Duration(5,0);
+      visualization_pub_.publish(marker);
     }
+
   }
   return !frontiers.empty();
 }
@@ -1146,23 +1200,37 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
     size_t size = traj_vector.size();
     ROS_DEBUG("[hector_exploration_planner] size of trajectory vector %u", (unsigned int)size);
 
-    if(size > 1){
-      geometry_msgs::PoseStamped lastPose = traj_vector[0];
+    if(size > 0){
+      geometry_msgs::PoseStamped lastPose = traj_vector[size-1];
       goals.push_back(lastPose);
-      for(size_t i = 1; i < size; ++i){
-        const geometry_msgs::PoseStamped& pose = traj_vector[i];
-        unsigned int x,y;
-        costmap_.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
-        unsigned m_point = costmap_.getIndex(x,y);
 
-        double dx = lastPose.pose.position.x - pose.pose.position.x;
-        double dy = lastPose.pose.position.y - pose.pose.position.y;
+      if (size > 1){
 
-        // extract points with 0.5m distance (if free)
-        if(isFree(m_point)){
-          if((dx*dx) + (dy*dy) > (0.5*0.5)){
-            goals.push_back(pose);
-            lastPose = pose;
+        // Allow collision at start in case vehicle is (very) close to wall
+        bool collision_allowed = true;
+
+        for(int i = static_cast<int>(size-2); i >= 0; --i){
+          const geometry_msgs::PoseStamped& pose = traj_vector[i];
+          unsigned int x,y;
+          costmap_.worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
+          unsigned int m_point = costmap_.getIndex(x,y);
+
+          double dx = lastPose.pose.position.x - pose.pose.position.x;
+          double dy = lastPose.pose.position.y - pose.pose.position.y;
+
+          bool point_in_free_space = isFree(m_point);
+
+          // extract points with 0.5m distance (if free)
+          if(point_in_free_space){
+            if((dx*dx) + (dy*dy) > (0.25*0.25)){
+              goals.push_back(pose);
+              lastPose = pose;
+              collision_allowed = false;
+            }
+          }
+
+          if (!point_in_free_space && !collision_allowed){
+            break;
           }
         }
       }
@@ -1173,41 +1241,49 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       // make exploration transform
       tf::Stamped<tf::Pose> robotPose;
       if(!costmap_ros_->getRobotPose(robotPose)){
-        ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
+        ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
       }
       geometry_msgs::PoseStamped robotPoseMsg;
       tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
-      buildexploration_trans_array_(robotPoseMsg, goals, false);
+      if (!buildexploration_trans_array_(robotPoseMsg, goals, false)){
+        ROS_WARN("[hector_exploration_planner]: Creating exploration transform array in find inner frontier failed, aborting.");
+        return false;
+      }
+
+      inner_vis_->publishVisOnDemand(costmap_, exploration_trans_array_);
 
       unsigned int x,y;
       costmap_.worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
 
 
+
+
       // get point with maximal distance to trajectory
-      int max_expl_point = costmap_.getIndex(x,y);
+      int max_exploration_trans_point = -1;
+      unsigned int max_exploration_trans_val = 0;
+
       for(unsigned int i = 0; i < num_map_cells_; ++i){
-        if(isFree(i)){
-          if(exploration_trans_array_[i] < INT_MAX){
-            if(exploration_trans_array_[i] > exploration_trans_array_[max_expl_point]){
-              if(!isFrontierReached(i)){
-                max_expl_point = i;
-              }
+
+        if(exploration_trans_array_[i] < INT_MAX){
+          if(exploration_trans_array_[i] > max_exploration_trans_val){
+            if(!isFrontierReached(i)){
+              max_exploration_trans_point = i;
+              max_exploration_trans_val = exploration_trans_array_[i];
             }
           }
         }
       }
 
-      // reset exploration transform
-      for(unsigned int i = 0; i < num_map_cells_; ++i){
-        exploration_trans_array_[i] = INT_MAX;
-        is_goal_array_[i] = false;
+      if (max_exploration_trans_point == 0){
+        ROS_WARN("[hector_exploration_planner]: Couldn't find max exploration transform point for inner exploration, aborting.");
+        return false;
       }
 
       geometry_msgs::PoseStamped finalFrontier;
       unsigned int fx,fy;
       double wfx,wfy;
-      costmap_.indexToCells(max_expl_point,fx,fy);
+      costmap_.indexToCells(max_exploration_trans_point,fx,fy);
       costmap_.mapToWorld(fx,fy,wfx,wfy);
       std::string global_frame = costmap_ros_->getGlobalFrameID();
       finalFrontier.header.frame_id = global_frame;
@@ -1230,7 +1306,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         visualization_msgs::Marker marker;
         marker.header.frame_id = "map";
         marker.header.stamp = ros::Time();
-        marker.ns = "hector_global_planner";
+        marker.ns = "hector_exploration_planner";
         marker.id = 100;
         marker.type = visualization_msgs::Marker::ARROW;
         marker.action = visualization_msgs::Marker::ADD;
@@ -1238,9 +1314,9 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         marker.pose.position.y = wfy;
         marker.pose.position.z = 0.0;
         marker.pose.orientation = tf::createQuaternionMsgFromYaw(yaw_path);
-        marker.scale.x = 0.5;
-        marker.scale.y = 0.5;
-        marker.scale.z = 0.5;
+        marker.scale.x = 0.2;
+        marker.scale.y = 0.2;
+        marker.scale.z = 0.2;
         marker.color.a = 1.0;
         marker.color.r = 0.0;
         marker.color.g = 0.0;
@@ -1248,7 +1324,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         marker.lifetime = ros::Duration(5,0);
         visualization_pub_.publish(marker);
       }
-      return !innerFrontier.empty();
+      return true;
     }
   }
   return false;
@@ -1331,7 +1407,7 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
 
   tf::Stamped<tf::Pose> robotPose;
   if(!costmap_ros_->getRobotPose(robotPose)){
-    ROS_WARN("[hector_global_planner]: Failed to get RobotPose");
+    ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
   }
   geometry_msgs::PoseStamped robotPoseMsg;
   tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
@@ -1346,7 +1422,7 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
   double dy = robotPoseMsg.pose.position.y - wfy;
 
   if ( (dx*dx) + (dy*dy) < (p_dist_for_goal_reached_*p_dist_for_goal_reached_)) {
-    ROS_DEBUG("[hector_global_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);
+    ROS_DEBUG("[hector_exploration_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);
     return true;
   }
   return false;
@@ -1373,11 +1449,11 @@ bool HectorExplorationPlanner::isSameFrontier(int frontier_point1, int frontier_
 }
 
 inline unsigned int HectorExplorationPlanner::cellDanger(int point){
-  unsigned int danger = 0;
+
   if((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
-    danger = p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
+    return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
   }
-  return danger;
+  return 0;
 }
 
 float HectorExplorationPlanner::angleDifference(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
@@ -1562,7 +1638,7 @@ inline int HectorExplorationPlanner::downleft(int point){
 //        visualization_msgs::Marker marker;
 //        marker.header.frame_id = "map";
 //        marker.header.stamp = ros::Time();
-//        marker.ns = "hector_global_planner";
+//        marker.ns = "hector_exploration_planner";
 //        marker.id = i + 500;
 //        marker.type = visualization_msgs::Marker::TEXT_VIEW_FACING;
 //        marker.action = visualization_msgs::Marker::ADD;
