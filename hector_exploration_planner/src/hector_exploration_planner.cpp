@@ -146,10 +146,16 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
 
   // do exploration? (not used anymore? -> call doExploration())
 
-  if ((original_goal.pose.orientation.w == 0.0) && (original_goal.pose.orientation.x == 0.0) &&
-  (original_goal.pose.orientation.y == 0.0) && (original_goal.pose.orientation.z == 0.0)){
-      ROS_ERROR("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
-      return doExploration(start,plan);
+  if ((original_goal.pose.orientation.w == 1.0)
+      && (original_goal.pose.orientation.x == 0.0)
+      && (original_goal.pose.orientation.y == 0.0)
+      && (original_goal.pose.orientation.z == 0.0)
+      && (original_goal.pose.position.x == 0.0)
+      && (original_goal.pose.position.y == 0.0)
+      && (original_goal.pose.position.z == 0.0)){
+
+    ROS_WARN("Trying to plan with invalid quaternion, this shouldn't be done anymore, but we'll start exploration for now.");
+    return doExploration(start,plan);
   }
 
 
