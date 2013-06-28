@@ -436,9 +436,38 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         new_observation_pose.pose.position.y = closest_point_world.y();
         new_observation_pose.pose.position.z = 0.0;
       }else{
+
         double distance_factor = desired_distance / distance;
 
         Eigen::Vector2d new_pos(original_goal_pose - dir_vec*distance_factor);
+
+        unsigned int x, y;
+        costmap_.worldToMap(new_pos[0], new_pos[1], x, y);
+        unsigned int idx = costmap_.getIndex(x,y);
+
+        bool free = this->isFree(idx);
+
+        if (!free){
+          double check_distance = desired_distance;
+
+          do{
+            check_distance = check_distance - 0.1;
+
+            distance_factor = check_distance / distance;
+
+            new_pos = original_goal_pose - dir_vec * distance_factor;
+
+            unsigned int x, y;
+            costmap_.worldToMap(new_pos[0], new_pos[1], x, y);
+            unsigned int idx = costmap_.getIndex(x,y);
+
+            if (this->isFree(idx)){
+              break;
+            }
+
+          }while(check_distance > distance);
+
+        }
 
         new_observation_pose.pose.position.x = new_pos.x();
         new_observation_pose.pose.position.y = new_pos.y();
