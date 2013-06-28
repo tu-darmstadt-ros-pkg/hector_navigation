@@ -430,7 +430,6 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         new_observation_pose.pose.position.y = closest_point_world.y();
         new_observation_pose.pose.position.z = 0.0;
 
-
         Eigen::Vector2d dir_vec(Eigen::Vector2d(observation_pose.pose.position.x - closest_point_world[0], observation_pose.pose.position.y - closest_point_world[1]));
         double angle = std::atan2(dir_vec.y(), dir_vec.x());
 
@@ -778,14 +777,14 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     }
 
     unsigned int init_cost = 0;
-    if(useAnglePenalty){
+    if(false){
       init_cost = angleDanger(angleDifference(start,goals[i])) * getDistanceWeight(start,goals[i]);
     }
 
     exploration_trans_array_[goal_point] = init_cost;
 
     // do not punish previous frontiers (oscillation)
-    if(useAnglePenalty && isValid(previous_goal_)){
+    if(false && isValid(previous_goal_)){
       if(isSameFrontier(goal_point, previous_goal_)){
         ROS_DEBUG("[hector_exploration_planner] same frontier: init with 0");
         exploration_trans_array_[goal_point] = 0;
@@ -947,6 +946,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
       }
     }
 
+    // This happens when there is no valid exploration transform data at the start point for example
     if(maxDelta == 0){
       ROS_WARN("[hector_exploration_planner] No path to the goal could be found by following gradient!");
       return false;
@@ -1009,6 +1009,38 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     }
   }
 
+  tf::Stamped<tf::Pose> robotPose;
+  if(!costmap_ros_->getRobotPose(robotPose)){
+    ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+  }
+
+
+  for(unsigned int i = 0; i < allFrontiers.size(); ++i){
+    if(!isFrontierReached(allFrontiers[i])){
+      geometry_msgs::PoseStamped finalFrontier;
+      double wx,wy;
+      unsigned int mx,my;
+      costmap_.indexToCells(allFrontiers[i], mx, my);
+      costmap_.mapToWorld(mx,my,wx,wy);
+      std::string global_frame = costmap_ros_->getGlobalFrameID();
+      finalFrontier.header.frame_id = global_frame;
+      finalFrontier.pose.position.x = wx;
+      finalFrontier.pose.position.y = wy;
+      finalFrontier.pose.position.z = 0.0;
+
+      double yaw = getYawToUnknown(costmap_.getIndex(mx,my));
+
+      //if(frontier_is_valid){
+
+      finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+      frontiers.push_back(finalFrontier);
+    }
+    //}
+  }
+
+  return true;
+
   // value of the next blob
   int nextBlobValue = 1;
   std::list<int> usedBlobs;
@@ -1042,7 +1074,6 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
         if(adjBlob == blobs.begin()){
           blobMergeVal = *adjBlob;
           frontier_map_array_[currentPoint] = blobMergeVal;
-
         } else {
 
           for(unsigned int k = 0; k < allFrontiers.size(); k++){
