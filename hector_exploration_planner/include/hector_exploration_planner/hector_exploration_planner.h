@@ -162,6 +162,7 @@ private:
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 
   boost::shared_ptr<ExplorationTransformVis> vis_;
+  boost::shared_ptr<ExplorationTransformVis> inner_vis_;
 
 };
 }

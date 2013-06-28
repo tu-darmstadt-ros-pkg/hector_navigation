@@ -100,6 +100,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   this->previous_goal_ = -1;
 
   vis_.reset(new ExplorationTransformVis("exploration_transform"));
+  inner_vis_.reset(new ExplorationTransformVis("inner_exploration_transform"));
 
 }
 
@@ -1221,7 +1222,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
 
           // extract points with 0.5m distance (if free)
           if(point_in_free_space){
-            if((dx*dx) + (dy*dy) > (0.5*0.5)){
+            if((dx*dx) + (dy*dy) > (0.25*0.25)){
               goals.push_back(pose);
               lastPose = pose;
               collision_allowed = false;
@@ -1250,6 +1251,8 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         return false;
       }
 
+      inner_vis_->publishVisOnDemand(costmap_, exploration_trans_array_);
+
       unsigned int x,y;
       costmap_.worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
 
@@ -1258,22 +1261,21 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
 
       // get point with maximal distance to trajectory
       int max_exploration_trans_point = -1;
-      unsigned int max_exploration_trans_val = INT_MIN;
+      unsigned int max_exploration_trans_val = 0;
 
       for(unsigned int i = 0; i < num_map_cells_; ++i){
-        if(isFree(i)){
-          if(exploration_trans_array_[i] < INT_MAX){
-            if(exploration_trans_array_[i] > max_exploration_trans_val){
-              if(!isFrontierReached(i)){
-                max_exploration_trans_point = i;
-                max_exploration_trans_val = exploration_trans_array_[i];
-              }
+
+        if(exploration_trans_array_[i] < INT_MAX){
+          if(exploration_trans_array_[i] > max_exploration_trans_val){
+            if(!isFrontierReached(i)){
+              max_exploration_trans_point = i;
+              max_exploration_trans_val = exploration_trans_array_[i];
             }
           }
         }
       }
 
-      if (max_exploration_trans_point < 0){
+      if (max_exploration_trans_point == 0){
         ROS_WARN("[hector_exploration_planner]: Couldn't find max exploration transform point for inner exploration, aborting.");
         return false;
       }
