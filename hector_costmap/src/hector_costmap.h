@@ -50,7 +50,7 @@ public:
     /**
     * \param [in] octo_map_msg stores an octo map as a 3D point cloud
     */
-    void callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr &octo_map_msg);
+    void callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr &cloud_msg);
 
     /// callbackGridMap get called if a new 2D grid map is available
     /**
@@ -82,11 +82,11 @@ private:
     ros::NodeHandle pnHandle;
 
     ros::Publisher pub_cost_map;
-    ros::Publisher pub_octo_slice;
+    ros::Publisher pub_cloud_slice;
 
     ros::Subscriber sub_elevation_map;
     ros::Subscriber sub_grid_map;
-    ros::Subscriber sub_octo_map;
+    ros::Subscriber sub_point_cloud;
     ros::Subscriber sub_sysMessage;
     ros::Subscriber sub_map_info;
 
@@ -102,21 +102,20 @@ private:
     double grid_res_z;
     int elevation_zero_level;
     double max_delta_elevation;
-    bool use_elevation_map, use_grid_map, use_octo_map, received_grid_map, received_elevation_map, received_octo_map, allow_kinect_to_clear_occupied_cells, use_negative_step_detection;
+    bool use_elevation_map, use_grid_map, use_cloud_map, received_grid_map, received_elevation_map, received_point_cloud, allow_elevation_map_to_clear_occupied_cells;
     int max_clear_size;
     double costmap_pub_freq;
-    double negative_step_detection_aera;
-    double octomap_slize_min_height, octomap_slize_max_height;
+    double slize_min_height, slize_max_height;
 
     pcl::PointCloud<pcl::PointXYZ>::Ptr sliced_cloud;
     nav_msgs::OccupancyGridConstPtr grid_map_msg_;
 
-    nav_msgs::OccupancyGrid cost_map, elevation_cost_map, octo_cost_map;
+    nav_msgs::OccupancyGrid cost_map, elevation_cost_map, cloud_cost_map;
 
     cv::Mat grid_map_, elevation_map_, elevation_map_filtered,elevation_cost_map_;
 
-    std::string cost_map_topic, elevation_map_topic, grid_map_topic, octo_map_topic, sys_msg_topic;
-    std::string map_frame_id,local_map_frame_id;
+    std::string cost_map_topic, elevation_map_topic, grid_map_topic, point_cloud_topic, sys_msg_topic;
+    std::string map_frame_id,local_transform_frame_id;
 
     Eigen::Vector2i min_index, max_index;
 

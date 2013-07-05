@@ -10,8 +10,8 @@
 #define USE_GRID_MAP_ONLY 0
 #define USE_ELEVATION_MAP_ONLY 1
 #define USE_GRID_AND_ELEVATION_MAP 2
-#define USE_GRID_AND_OCTO_MAP 3
-#define USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP 4
+#define USE_GRID_AND_CLOUD_MAP 3
+#define USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP 4
 
 
 CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
@@ -40,22 +40,20 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     pnHandle.param("max_delta_elevation", max_delta_elevation, 0.08); //[m]
 
     pnHandle.param("map_frame_id", map_frame_id,std::string("map"));
-    pnHandle.param("local_map_frame_id", local_map_frame_id,std::string("base_footprint"));
+    pnHandle.param("local_transform_frame_id", local_transform_frame_id,std::string("base_footprint"));
     pnHandle.param("cost_map_topic", cost_map_topic, std::string("cost_map"));
     pnHandle.param("elevation_map_topic", elevation_map_topic, std::string("elevation_map_local"));
     pnHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
 
     pnHandle.param("use_elevation_map", use_elevation_map, true);
     pnHandle.param("use_grid_map", use_grid_map, true);
-    pnHandle.param("use_octo_map", use_octo_map, true);
-    pnHandle.param("allow_kinect_to_clear_occupied_cells", allow_kinect_to_clear_occupied_cells, true);
+    pnHandle.param("use_cloud_map", use_cloud_map, false);
+    pnHandle.param("allow_elevation_map_to_clear_occupied_cells", allow_elevation_map_to_clear_occupied_cells, true);
     pnHandle.param("max_clear_size", max_clear_size, 2);
-    pnHandle.param("use_negative_step_detection",use_negative_step_detection, false);
-    pnHandle.param("negative_step_detection_aera", negative_step_detection_aera, 0.25);
 
-    pnHandle.param("octo_map_topic", octo_map_topic,std::string("hector_octomap_server/octomap_point_cloud_centers"));
-    pnHandle.param("octomap_slize_min_height", octomap_slize_min_height, 0.70); //[m]
-    pnHandle.param("octomap_slize_max_height", octomap_slize_max_height, 0.80); //[m]
+    pnHandle.param("point_cloud_topic", point_cloud_topic,std::string("openni/depth/points"));
+    pnHandle.param("slize_min_height", slize_min_height, 0.30); //[m]
+    pnHandle.param("slize_max_height", slize_min_height, 0.35); //[m]
 
     pnHandle.param("costmap_pub_freq", costmap_pub_freq, 4.0); //[Hz]
 
@@ -63,7 +61,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 
     cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
     elevation_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
-    octo_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
+    cloud_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
 
     world_map_transform.setTransforms(cost_map.info);
 
@@ -80,7 +78,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 
     received_elevation_map = false;
     received_grid_map      = false;
-    received_octo_map      = false;
+    received_point_cloud   = false;
 
     sliced_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
@@ -90,8 +88,8 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     if(use_grid_map)
         sub_grid_map = nHandle.subscribe(grid_map_topic,10,&CostMapCalculation::callbackGridMap,this);
 
-    if(use_octo_map)
-        sub_octo_map = nHandle.subscribe(octo_map_topic,10,&CostMapCalculation::callbackOctoMap,this);
+    if(use_cloud_map)
+        sub_point_cloud = nHandle.subscribe(point_cloud_topic,10,&CostMapCalculation::callbackPointCloud,this);
 
     sub_map_info = nHandle.subscribe("map_metadata",1,&CostMapCalculation::updateMapParamsCallback,this);
 
@@ -102,7 +100,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 
     ROS_INFO("HectorCM: is up and running.");
 
-    pub_octo_slice = pnHandle.advertise<sensor_msgs::PointCloud2>("octo_slice",1,true);
+    pub_cloud_slice = pnHandle.advertise<sensor_msgs::PointCloud2>("cloud_slice",1,true);
 
     ros::spin();
 }
@@ -112,6 +110,7 @@ CostMapCalculation::~CostMapCalculation()
 {
     ROS_INFO("HectorCM: Shutting down!");
 }
+
 
 void CostMapCalculation::sysMessageCallback(const std_msgs::String& string)
 {
@@ -124,7 +123,7 @@ void CostMapCalculation::sysMessageCallback(const std_msgs::String& string)
         // set default values
         cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
         elevation_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
-        octo_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
+        cloud_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
 
         // loop through starting area
         min_index(0) = cost_map.info.width/2-floor(initial_free_cells_radius/cost_map.info.resolution);
@@ -137,7 +136,7 @@ void CostMapCalculation::sysMessageCallback(const std_msgs::String& string)
 
         received_elevation_map = false;
         received_grid_map      = false;
-        received_octo_map      = false;
+        received_point_cloud   = false;
     }
 }
 
@@ -145,30 +144,10 @@ void CostMapCalculation::sysMessageCallback(const std_msgs::String& string)
 void CostMapCalculation::dynRecParamCallback(hector_costmap::CostMapCalculationConfig &config, uint32_t level)
 {
     max_delta_elevation = config.max_delta_elevation;
-    use_elevation_map = config.use_elevation_map;
-    use_grid_map = config.use_grid_map;
-    allow_kinect_to_clear_occupied_cells = config.allow_kinect_to_clear_occupied_cells;
+    allow_elevation_map_to_clear_occupied_cells = config.allow_elevation_map_to_clear_occupied_cells;
     max_clear_size = config.max_clear_size;
-    costmap_pub_freq = config.costmap_pub_freq;
-    octomap_slize_min_height = config.octomap_slize_min_height;
-    octomap_slize_max_height = config.octomap_slize_max_height;
-    use_negative_step_detection = config.use_negative_step_detection;
-    negative_step_detection_aera = config.negative_step_detection_aera;
-
-    if(use_elevation_map)
-        sub_elevation_map = nHandle.subscribe(elevation_map_topic,10,&CostMapCalculation::callbackElevationMap,this);
-    else
-        sub_elevation_map.shutdown();
-
-    if(use_grid_map)
-        sub_grid_map = nHandle.subscribe(grid_map_topic,10,&CostMapCalculation::callbackGridMap,this);
-    else
-        sub_grid_map.shutdown();
-
-    if(use_octo_map)
-        sub_octo_map = nHandle.subscribe(octo_map_topic,10,&CostMapCalculation::callbackOctoMap,this);
-    else
-        sub_octo_map.shutdown();
+    slize_min_height = config.slize_min_height;
+    slize_max_height = config.slize_max_height;
 }
 
 
@@ -195,6 +174,7 @@ void CostMapCalculation::updateMapParamsCallback(const nav_msgs::MapMetaData& ma
     // allocate memory
     cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
     elevation_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
+    cloud_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
 
     // loop through starting area
     min_index(0) = cost_map.info.width/2-floor(initial_free_cells_radius/cost_map.info.resolution);
@@ -208,7 +188,7 @@ void CostMapCalculation::updateMapParamsCallback(const nav_msgs::MapMetaData& ma
     // update flags
     received_elevation_map = false;
     received_grid_map      = false;
-    received_octo_map      = false;
+    use_cloud_map          = false;
 }
 
 void CostMapCalculation::timerCallback(const ros::TimerEvent& event)
@@ -286,46 +266,15 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
         }
     }
 
-    /// negative step detection
-    if(use_negative_step_detection)
-    {
-        cv::Mat map = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8U, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
-
-        cv::Rect rect(min_index(0),min_index(1),max_index(0)-min_index(0),max_index(1)-min_index(1));
-        cv::Mat roi(map,rect);
-
-        cv::Mat map_binarized;
-        cv::threshold(roi, map_binarized,254,255,cv::THRESH_BINARY_INV);
-
-        //cv::imshow("binarized", map_binarized);
-        //cv::waitKey(50);
-
-        std::vector<std::vector<cv::Point> > contours;
-        cv::findContours(map_binarized,contours,CV_RETR_TREE, CV_CHAIN_APPROX_SIMPLE);
-
-        for(int i=0; i<(int)contours.size();i++)
-        {
-            ROS_DEBUG("HectorCM: Filled area size: %f",cv::contourArea(contours[i]));
-            if(cv::contourArea(contours[i]) > negative_step_detection_aera/cost_map.info.resolution/cost_map.info.resolution)
-                contours.erase(contours.begin()+i);
-        }
-
-        cv::Mat map2 = cv::Mat(cost_map.info.height, cost_map.info.width, CV_8S, const_cast<int8_t*>(&elevation_cost_map.data[0]), (size_t)cost_map.info.width);
-        cv::fillPoly(map2,contours,cv::Scalar(100),8,0,cv::Point(min_index(0),min_index(1)));
-
-        //cv::imshow("filled_map", map2);
-        //cv::waitKey(50);
-    }
-
     // set elevation map received flag
     received_elevation_map = true;
 
     // calculate cost map
     if(received_grid_map)
     {
-        if(received_octo_map)
+        if(received_point_cloud)
         {
-            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP);
+            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP);
         }
         else
         {
@@ -338,56 +287,57 @@ void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::Eleva
     }
 }
 
-
-void CostMapCalculation::callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr& octo_map_msg)
+void CostMapCalculation::callbackPointCloud(const sensor_msgs::PointCloud2ConstPtr& cloud_msg)
 {
-    pcl::PointCloud<pcl::PointXYZ>::Ptr octo_map_cloud (new pcl::PointCloud<pcl::PointXYZ>);
-    tf::StampedTransform local_map_transform;
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_sensor (new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_base_link (new pcl::PointCloud<pcl::PointXYZ>);
 
-    ROS_DEBUG("HectorCM: received new octo map");
+    ROS_DEBUG("HectorCM: received new point cloud");
 
     // converting PointCloud2 msg format to pcl pointcloud format in order to read the 3d data
-    pcl::fromROSMsg(*octo_map_msg, *octo_map_cloud);
+    pcl::fromROSMsg(*cloud_msg, *cloud_sensor);
 
-    // get local map transform
+    // transform cloud to /map frame
     try
     {
-        listener.waitForTransform(map_frame_id, local_map_frame_id,octo_map_msg->header.stamp,ros::Duration(1.0));
-        listener.lookupTransform(map_frame_id, local_map_frame_id, octo_map_msg->header.stamp, local_map_transform);
+        listener.waitForTransform("base_stabilized", cloud_msg->header.frame_id,cloud_sensor->header.stamp,ros::Duration(1.0));
+        pcl_ros::transformPointCloud("base_stabilized",*cloud_sensor,*cloud_base_link,listener);
     }
     catch (tf::TransformException ex)
     {
         ROS_ERROR("%s",ex.what());
-        ROS_DEBUG("HectorCM: localmap transform in cloud callback failed");
+        ROS_DEBUG("HectorCM: pointcloud transform failed");
         return;
     }
 
     // compute region of intereset
-    if(!computeWindowIndices(octo_map_msg->header.stamp, update_radius_world))
+    if(!computeWindowIndices(cloud_msg->header.stamp, update_radius_world))
         return;
 
     Eigen::Vector2f world_coords;
-    // define your cube with two points in space:
+    // define a cube with two points in space:
     Eigen::Vector4f minPoint;
     world_coords = world_map_transform.getC1Coords(min_index.cast<float>());
     minPoint[0]=world_coords(0);  // define minimum point x
     minPoint[1]=world_coords(1);  // define minimum point y
-    minPoint[2]=octomap_slize_min_height+local_map_transform.getOrigin().z(); // define minimum point z
+    minPoint[2]=slize_min_height; // define minimum point z
 
     Eigen::Vector4f maxPoint;
     world_coords = world_map_transform.getC1Coords(max_index.cast<float>());
     maxPoint[0]=world_coords(0);  // define max point x
     maxPoint[1]=world_coords(1);  // define max point y
-    maxPoint[2]=octomap_slize_max_height+local_map_transform.getOrigin().z(); // define max point z
+    maxPoint[2]=slize_max_height; // define max point z
 
     pcl::CropBox<pcl::PointXYZ> cropFilter;
-    cropFilter.setInputCloud (octo_map_cloud);
+    cropFilter.setInputCloud (cloud_base_link);
     cropFilter.setMin(minPoint);
     cropFilter.setMax(maxPoint);
     cropFilter.filter (*sliced_cloud);
 
-    ROS_DEBUG("HectorCM: octomap slice size: %d", (int)sliced_cloud->size());
-    pub_octo_slice.publish(sliced_cloud);
+    ROS_DEBUG("HectorCM: slice size: %d", (int)sliced_cloud->size());
+    pub_cloud_slice.publish(sliced_cloud);
+
+    cloud_cost_map.data.assign(cost_map.info.width * cost_map.info.height,UNKNOWN_CELL);
 
     // iterate trough all points
     for (unsigned int k = 0; k < sliced_cloud->size(); ++k)
@@ -398,22 +348,22 @@ void CostMapCalculation::callbackOctoMap(const sensor_msgs::PointCloud2ConstPtr&
         Eigen::Vector2f index_world(pt_cloud.x, pt_cloud.y);
         Eigen::Vector2f index_map (world_map_transform.getC2Coords(index_world));
 
-        octo_cost_map.data[MAP_IDX(cost_map.info.width, (int)round(index_map(0)), (int)round(index_map(1)))] = OCCUPIED_CELL;
+        cloud_cost_map.data[MAP_IDX(cost_map.info.width, (int)round(index_map(0)), (int)round(index_map(1)))] = OCCUPIED_CELL;
     }
 
-    // set octo map received flag
-    received_octo_map = true;
+    // set point cloud received flag
+    received_point_cloud = true;
 
     // calculate cost map
     if(received_grid_map)
     {
         if(received_elevation_map)
         {
-            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP);
+            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP);
         }
         else
         {
-            calculateCostMap(USE_GRID_AND_OCTO_MAP);
+            calculateCostMap(USE_GRID_AND_CLOUD_MAP);
         }
     }
 }
@@ -446,9 +396,9 @@ void CostMapCalculation::callbackGridMap(const nav_msgs::OccupancyGridConstPtr& 
     // calculate cost map
     if(received_elevation_map)
     {
-        if(received_octo_map)
+        if(received_point_cloud)
         {
-            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP);
+            calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP);
         }
         else
         {
@@ -457,9 +407,9 @@ void CostMapCalculation::callbackGridMap(const nav_msgs::OccupancyGridConstPtr& 
     }
     else
     {
-        if(received_octo_map)
+        if(received_point_cloud)
         {
-            calculateCostMap(USE_GRID_AND_OCTO_MAP);
+            calculateCostMap(USE_GRID_AND_CLOUD_MAP);
         }
         else
         {
@@ -568,7 +518,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                         checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
                         checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
 
-                        if(elevation_cost_map.data[index] == FREE_CELL && allow_kinect_to_clear_occupied_cells)
+                        if(elevation_cost_map.data[index] == FREE_CELL && allow_elevation_map_to_clear_occupied_cells)
                         {
                             if(checksum_grid_map <= max_clear_size*OCCUPIED_CELL)
                             {
@@ -596,11 +546,11 @@ bool CostMapCalculation::calculateCostMap(char map_level)
         }
         break;
     }
-    case USE_GRID_AND_OCTO_MAP:
+    case USE_GRID_AND_CLOUD_MAP:
     {
-        // cost map based on octo map and grid map
+        // cost map based on cloud map and grid map
 
-        ROS_DEBUG("HectorCM: compute costmap based on grid and octo map");
+        ROS_DEBUG("HectorCM: compute costmap based on grid and cloud map");
 
         // loop through each element
         for (int v = min_index(1); v < max_index(1); ++v)
@@ -612,7 +562,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                 // check if cell is known
                 if(grid_map_.at<int8_t>(v,u) != UNKNOWN_CELL)
                 {
-                    if(grid_map_.at<int8_t>(v,u) == OCCUPIED_CELL || octo_cost_map.data[index] == OCCUPIED_CELL)
+                    if(grid_map_.at<int8_t>(v,u) == OCCUPIED_CELL || cloud_cost_map.data[index] == OCCUPIED_CELL)
                     {
                             // cell is occupied
                             cost_map.data[index] = OCCUPIED_CELL;
@@ -627,11 +577,11 @@ bool CostMapCalculation::calculateCostMap(char map_level)
         break;
     }
 
-    case USE_GRID_AND_ELEVATION_MAP_AND_OCTO_MAP:
+    case USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP:
     {
-        // cost map based on elevation, octo and grid map
+        // cost map based on elevation, cloud and grid map
 
-        ROS_DEBUG("HectorCM: compute costmap based on grid, octo and elevation map");
+        ROS_DEBUG("HectorCM: compute costmap based on grid, cloud and elevation map");
 
         int checksum_grid_map;
 
@@ -658,7 +608,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                         checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
                         checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
 
-                        if(elevation_cost_map.data[index] == FREE_CELL && allow_kinect_to_clear_occupied_cells)
+                        if(elevation_cost_map.data[index] == FREE_CELL && allow_elevation_map_to_clear_occupied_cells)
                         {
                             if(checksum_grid_map <= max_clear_size*OCCUPIED_CELL)
                             {
@@ -679,7 +629,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
                     }
                     else
                     {
-                        if(elevation_cost_map.data[index] == OCCUPIED_CELL)
+                        if(cloud_cost_map.data[index] == OCCUPIED_CELL)
                         {
                             // cell is occupied
                             cost_map.data[index] = OCCUPIED_CELL;
@@ -710,13 +660,13 @@ bool CostMapCalculation::computeWindowIndices(ros::Time time,double update_radiu
 
     // window update region
     // only update cells within the max a curtain radius of current robot position
-    tf::StampedTransform local_map_transform;
+    tf::StampedTransform transform;
 
     // get local map transform
     try
     {
-        listener.waitForTransform(map_frame_id, local_map_frame_id, time, ros::Duration(5));
-        listener.lookupTransform(map_frame_id, local_map_frame_id, time, local_map_transform);
+        listener.waitForTransform(map_frame_id, local_transform_frame_id, time, ros::Duration(5));
+        listener.lookupTransform(map_frame_id, local_transform_frame_id, time, transform);
     }
     catch (tf::TransformException ex)
     {
@@ -724,8 +674,8 @@ bool CostMapCalculation::computeWindowIndices(ros::Time time,double update_radiu
         return false;
     }
 
-    index_world(0) = local_map_transform.getOrigin().x();
-    index_world(1) = local_map_transform.getOrigin().y();
+    index_world(0) = transform.getOrigin().x();
+    index_world(1) = transform.getOrigin().y();
     index_map = world_map_transform.getC2Coords(index_world);
     update_radius_map = floor(((double)update_radius/(double)cost_map.info.resolution));
 
