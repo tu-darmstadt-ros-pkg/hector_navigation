@@ -54,7 +54,7 @@ public:
 
     /// timerCallback publishes periodically a height pose update
     /**
-    * \param [in] event is unused
+    * \param [in] event is not used
     */
     void timerCallback(const ros::TimerEvent& event);
 
