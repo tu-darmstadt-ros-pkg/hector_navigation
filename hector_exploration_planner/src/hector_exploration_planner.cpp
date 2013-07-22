@@ -45,6 +45,7 @@ using namespace hector_exploration_planner;
 
 HectorExplorationPlanner::HectorExplorationPlanner()
 : costmap_ros_(0)
+, costmap_(0)
 , occupancy_grid_array_(0)
 , exploration_trans_array_(0)
 , obstacle_trans_array_(0)
@@ -736,7 +737,13 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
 void HectorExplorationPlanner::setupMapData()
 {
+#ifdef LAYERED_COSTMAP_H_
   costmap_ = costmap_ros_->getCostmap();
+#else
+  if (costmap_) delete costmap_;
+  costmap_ = new costmap_2d::Costmap2D;
+  costmap_ros_->getCostmapCopy(*costmap_);
+#endif
 
   if ((this->map_width_ != costmap_->getSizeInCellsX()) || (this->map_height_ != costmap_->getSizeInCellsY())){
     this->deleteMapData();
