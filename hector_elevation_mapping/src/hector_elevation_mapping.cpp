@@ -236,7 +236,7 @@ void ElevationMapping::cloudCallback(const sensor_msgs::PointCloud2ConstPtr& poi
     // transform cloud to /map frame
     try
     {
-        listener.waitForTransform(map_frame_id, pointcloud2_sensor_msg->header.frame_id,pointcloud2_sensor_pcl->header.stamp,ros::Duration(1.0));
+        listener.waitForTransform(map_frame_id, pointcloud2_sensor_msg->header.frame_id,pointcloud2_sensor_msg->header.stamp,ros::Duration(1.0));
         pcl_ros::transformPointCloud(map_frame_id,*pointcloud2_sensor_pcl,*pointcloud2_map_pcl,listener);
     }
     catch (tf::TransformException ex)

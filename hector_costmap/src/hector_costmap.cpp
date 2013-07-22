@@ -300,7 +300,7 @@ void CostMapCalculation::callbackPointCloud(const sensor_msgs::PointCloud2ConstP
     // transform cloud to /map frame
     try
     {
-        listener.waitForTransform("base_stabilized", cloud_msg->header.frame_id,cloud_sensor->header.stamp,ros::Duration(1.0));
+        listener.waitForTransform("base_stabilized", cloud_msg->header.frame_id,cloud_msg->header.stamp,ros::Duration(1.0));
         pcl_ros::transformPointCloud("base_stabilized",*cloud_sensor,*cloud_base_link,listener);
     }
     catch (tf::TransformException ex)
