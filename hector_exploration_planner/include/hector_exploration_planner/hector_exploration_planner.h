@@ -133,7 +133,7 @@ private:
   ros::Publisher visualization_pub_;
   ros::ServiceClient path_service_client_;
   costmap_2d::Costmap2DROS* costmap_ros_;
-  costmap_2d::Costmap2D costmap_;
+  costmap_2d::Costmap2D* costmap_;
 
   const unsigned char* occupancy_grid_array_;
   unsigned int* exploration_trans_array_;
