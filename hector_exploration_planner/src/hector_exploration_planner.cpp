@@ -545,9 +545,9 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
     getAdjacentPoints(currentPoint, adjacentPoints);
     int dirPoints [3];
 
-    int minDelta=INT_MAX;
-    int maxDelta=0;
-    int thisDelta;
+    unsigned int minDelta = UINT_MAX;
+    unsigned int maxDelta = 0;
+    unsigned int thisDelta;
     float minAngle=3.1415; //Rad -> 180°
 
     geometry_msgs::PoseStamped trajPoint;
@@ -630,7 +630,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
     // find next point
     int t=0;
     for(int i=0; i<3; i++){
-      thisDelta= obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
+      thisDelta = obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
 
       if (thisDelta > 3000 || loop > 7) // point is unknown or robot drive loop
       {
@@ -642,15 +642,15 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
         return !plan.empty();
       }
 
-      if(thisDelta >= p_min_obstacle_dist_){
-        if(obstacle_trans_array_[currentPoint] >= p_min_obstacle_dist_){
+      if(thisDelta >= (unsigned int) p_min_obstacle_dist_){
+        if(obstacle_trans_array_[currentPoint] >= (unsigned int) p_min_obstacle_dist_){
           if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
             minDelta = abs(thisDelta - p_min_obstacle_dist_);
             nextPoint = adjacentPoints[dirPoints[i]];
             oldDirection = dirPoints[i];
           }
         }
-        if(obstacle_trans_array_[currentPoint] < p_min_obstacle_dist_){
+        if(obstacle_trans_array_[currentPoint] < (unsigned int) p_min_obstacle_dist_){
           if(thisDelta > maxDelta){
             maxDelta = thisDelta;
             nextPoint = adjacentPoints[dirPoints[i]];
