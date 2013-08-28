@@ -38,7 +38,7 @@
 
 #include <hector_exploration_planner/exploration_transform_vis.h>
 
-
+#include <boost/shared_array.hpp>
 
 namespace hector_exploration_planner{
 
@@ -136,10 +136,10 @@ private:
   costmap_2d::Costmap2D* costmap_;
 
   const unsigned char* occupancy_grid_array_;
-  unsigned int* exploration_trans_array_;
-  unsigned int* obstacle_trans_array_;
-  int* frontier_map_array_;
-  bool* is_goal_array_;
+  boost::shared_array<unsigned int> exploration_trans_array_;
+  boost::shared_array<unsigned int> obstacle_trans_array_;
+  boost::shared_array<int> frontier_map_array_;
+  boost::shared_array<bool> is_goal_array_;
 
   bool initialized_;
   int previous_goal_;

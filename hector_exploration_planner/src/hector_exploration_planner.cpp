@@ -201,7 +201,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
     return false;
   }
 
-  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_);
+  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
   if(!getTrajectory(start,goals,plan)){
     ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
@@ -722,17 +722,15 @@ void HectorExplorationPlanner::setupMapData()
 #endif
 
   if ((this->map_width_ != costmap_->getSizeInCellsX()) || (this->map_height_ != costmap_->getSizeInCellsY())){
-    this->deleteMapData();
-
     map_width_ = costmap_->getSizeInCellsX();
     map_height_ = costmap_->getSizeInCellsY();
     num_map_cells_ = map_width_ * map_height_;
 
     // initialize exploration_trans_array_, obstacle_trans_array_, goalMap and frontier_map_array_
-    exploration_trans_array_ = new unsigned int[num_map_cells_];
-    obstacle_trans_array_ = new unsigned int[num_map_cells_];
-    is_goal_array_ = new bool[num_map_cells_];
-    frontier_map_array_ = new int[num_map_cells_];
+    exploration_trans_array_.reset(new unsigned int[num_map_cells_]);
+    obstacle_trans_array_.reset(new unsigned int[num_map_cells_]);
+    is_goal_array_.reset(new bool[num_map_cells_]);
+    frontier_map_array_.reset(new int[num_map_cells_]);
     clearFrontiers();
     resetMaps();
   }
@@ -743,22 +741,10 @@ void HectorExplorationPlanner::setupMapData()
 
 void HectorExplorationPlanner::deleteMapData()
 {
-  if(exploration_trans_array_){
-    delete[] exploration_trans_array_;
-    exploration_trans_array_ = 0;
-  }
-  if(obstacle_trans_array_){
-    delete[] obstacle_trans_array_;
-    obstacle_trans_array_ = 0;
-  }
-  if(is_goal_array_){
-    delete[] is_goal_array_;
-    is_goal_array_ = 0;
-  }
-  if(frontier_map_array_){
-    delete[] frontier_map_array_;
-    frontier_map_array_=0;
-  }
+  exploration_trans_array_.reset();
+  obstacle_trans_array_.reset();
+  is_goal_array_.reset();
+  frontier_map_array_.reset();
 }
 
 
@@ -1267,7 +1253,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         return false;
       }
 
-      inner_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_);
+      inner_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
       unsigned int x,y;
       costmap_->worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
