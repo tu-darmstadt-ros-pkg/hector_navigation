@@ -107,39 +107,15 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
 {
-  if (p_plan_in_unknown_ != config.plan_in_unknown){
-    p_plan_in_unknown_ = config.plan_in_unknown;
-  }
-
-  if (p_use_inflated_obs_ != config.use_inflated_obstacles){
-    p_use_inflated_obs_ = config.use_inflated_obstacles;
-  }
-
-  if (p_goal_angle_penalty_ != config.goal_angle_penalty){
-    p_goal_angle_penalty_ = config.goal_angle_penalty;
-  }
-
-  if (p_alpha_ != config.security_constant){
-    p_alpha_ = config.security_constant;
-  }
-
-  if (p_dist_for_goal_reached_ != config.dist_for_goal_reached){
-    p_dist_for_goal_reached_ = config.dist_for_goal_reached;
-  }
-
-  if (p_same_frontier_dist_ != config.same_frontier_distance){
-    p_same_frontier_dist_ = config.same_frontier_distance;
-  }
-
-  if (p_min_frontier_size_ != config.min_frontier_size){
-    p_min_frontier_size_ = config.min_frontier_size;
-  }
-
+  p_plan_in_unknown_ = config.plan_in_unknown;
+  p_use_inflated_obs_ = config.use_inflated_obstacles;
+  p_goal_angle_penalty_ = config.goal_angle_penalty;
+  p_alpha_ = config.security_constant;
+  p_dist_for_goal_reached_ = config.dist_for_goal_reached;
+  p_same_frontier_dist_ = config.same_frontier_distance;
+  p_min_frontier_size_ = config.min_frontier_size;
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
-
 }
-
-
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
