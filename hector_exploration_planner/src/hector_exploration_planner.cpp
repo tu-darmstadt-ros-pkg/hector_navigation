@@ -46,11 +46,6 @@ using namespace hector_exploration_planner;
 HectorExplorationPlanner::HectorExplorationPlanner()
 : costmap_ros_(0)
 , costmap_(0)
-, occupancy_grid_array_(0)
-, exploration_trans_array_(0)
-, obstacle_trans_array_(0)
-, frontier_map_array_(0)
-, is_goal_array_(0)
 , initialized_(false)
 , map_width_(0)
 , map_height_(0)
@@ -119,6 +114,11 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
+#ifdef LAYERED_COSTMAP_H_
+  // acquire costmap lock
+  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
+#endif
+
   this->setupMapData();
 
   // do exploration? (not used anymore? -> call doExploration())
@@ -173,6 +173,11 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   ROS_INFO("[hector_exploration_planner] exploration: starting exploration");
 
+#ifdef LAYERED_COSTMAP_H_
+  // acquire costmap lock
+  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
+#endif
+
   this->setupMapData();
 
   // setup maps and goals
@@ -223,6 +228,11 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
 bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
   ROS_INFO("[hector_exploration_planner] inner-exploration: starting exploration");
+
+#ifdef LAYERED_COSTMAP_H_
+  // acquire costmap lock
+  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
+#endif
 
   // setup maps and goals
 
@@ -315,6 +325,11 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   // We call this from inside the planner, so map data setup and reset already happened
   //this->setupMapData();
   //resetMaps();
+
+#ifdef LAYERED_COSTMAP_H_
+  // acquire costmap lock
+  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
+#endif
 
   unsigned int mxs,mys;
   costmap_->worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
@@ -461,6 +476,11 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
   ROS_INFO("[hector_exploration_planner] alternative exploration: starting alternative exploration");
+
+#ifdef LAYERED_COSTMAP_H_
+  // acquire costmap lock
+  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
+#endif
 
   // setup maps and goals
   resetMaps();
@@ -753,8 +773,8 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
   // reset exploration transform
-  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(is_goal_array_, num_map_cells_, false);
+  std::fill_n(exploration_trans_array_.get(), num_map_cells_, INT_MAX);
+  std::fill_n(is_goal_array_.get(), num_map_cells_, false);
 
   std::queue<int> myqueue;
 
@@ -1369,13 +1389,13 @@ bool HectorExplorationPlanner::isFrontier(int point){
 
 
 void HectorExplorationPlanner::resetMaps(){
-  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(obstacle_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(is_goal_array_, num_map_cells_, false);
+  std::fill_n(exploration_trans_array_.get(), num_map_cells_, UINT_MAX);
+  std::fill_n(obstacle_trans_array_.get(), num_map_cells_, UINT_MAX);
+  std::fill_n(is_goal_array_.get(), num_map_cells_, false);
 }
 
 void HectorExplorationPlanner::clearFrontiers(){
-  std::fill_n(frontier_map_array_, num_map_cells_, 0);
+  std::fill_n(frontier_map_array_.get(), num_map_cells_, 0);
 }
 
 inline bool HectorExplorationPlanner::isValid(int point){
