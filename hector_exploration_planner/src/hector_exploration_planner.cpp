@@ -114,11 +114,6 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
-#ifdef LAYERED_COSTMAP_H_
-  // acquire costmap lock
-  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
-#endif
-
   this->setupMapData();
 
   // do exploration? (not used anymore? -> call doExploration())
@@ -173,11 +168,6 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   ROS_INFO("[hector_exploration_planner] exploration: starting exploration");
 
-#ifdef LAYERED_COSTMAP_H_
-  // acquire costmap lock
-  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
-#endif
-
   this->setupMapData();
 
   // setup maps and goals
@@ -228,11 +218,6 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
 bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
   ROS_INFO("[hector_exploration_planner] inner-exploration: starting exploration");
-
-#ifdef LAYERED_COSTMAP_H_
-  // acquire costmap lock
-  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
-#endif
 
   // setup maps and goals
 
@@ -325,11 +310,6 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   // We call this from inside the planner, so map data setup and reset already happened
   //this->setupMapData();
   //resetMaps();
-
-#ifdef LAYERED_COSTMAP_H_
-  // acquire costmap lock
-  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
-#endif
 
   unsigned int mxs,mys;
   costmap_->worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
@@ -476,11 +456,6 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
   ROS_INFO("[hector_exploration_planner] alternative exploration: starting alternative exploration");
-
-#ifdef LAYERED_COSTMAP_H_
-  // acquire costmap lock
-  boost::unique_lock<boost::shared_mutex> lock(*(costmap_->getLock()));
-#endif
 
   // setup maps and goals
   resetMaps();
