@@ -46,11 +46,6 @@ using namespace hector_exploration_planner;
 HectorExplorationPlanner::HectorExplorationPlanner()
 : costmap_ros_(0)
 , costmap_(0)
-, occupancy_grid_array_(0)
-, exploration_trans_array_(0)
-, obstacle_trans_array_(0)
-, frontier_map_array_(0)
-, is_goal_array_(0)
 , initialized_(false)
 , map_width_(0)
 , map_height_(0)
@@ -107,39 +102,15 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
 {
-  if (p_plan_in_unknown_ != config.plan_in_unknown){
-    p_plan_in_unknown_ = config.plan_in_unknown;
-  }
-
-  if (p_use_inflated_obs_ != config.use_inflated_obstacles){
-    p_use_inflated_obs_ = config.use_inflated_obstacles;
-  }
-
-  if (p_goal_angle_penalty_ != config.goal_angle_penalty){
-    p_goal_angle_penalty_ = config.goal_angle_penalty;
-  }
-
-  if (p_alpha_ != config.security_constant){
-    p_alpha_ = config.security_constant;
-  }
-
-  if (p_dist_for_goal_reached_ != config.dist_for_goal_reached){
-    p_dist_for_goal_reached_ = config.dist_for_goal_reached;
-  }
-
-  if (p_same_frontier_dist_ != config.same_frontier_distance){
-    p_same_frontier_dist_ = config.same_frontier_distance;
-  }
-
-  if (p_min_frontier_size_ != config.min_frontier_size){
-    p_min_frontier_size_ = config.min_frontier_size;
-  }
-
+  p_plan_in_unknown_ = config.plan_in_unknown;
+  p_use_inflated_obs_ = config.use_inflated_obstacles;
+  p_goal_angle_penalty_ = config.goal_angle_penalty;
+  p_alpha_ = config.security_constant;
+  p_dist_for_goal_reached_ = config.dist_for_goal_reached;
+  p_same_frontier_dist_ = config.same_frontier_distance;
+  p_min_frontier_size_ = config.min_frontier_size;
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
-
 }
-
-
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
 
@@ -225,7 +196,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
     return false;
   }
 
-  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_);
+  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
   if(!getTrajectory(start,goals,plan)){
     ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
@@ -569,9 +540,9 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
     getAdjacentPoints(currentPoint, adjacentPoints);
     int dirPoints [3];
 
-    int minDelta=INT_MAX;
-    int maxDelta=0;
-    int thisDelta;
+    unsigned int minDelta = UINT_MAX;
+    unsigned int maxDelta = 0;
+    unsigned int thisDelta;
     float minAngle=3.1415; //Rad -> 180°
 
     geometry_msgs::PoseStamped trajPoint;
@@ -654,7 +625,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
     // find next point
     int t=0;
     for(int i=0; i<3; i++){
-      thisDelta= obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
+      thisDelta = obstacle_trans_array_[adjacentPoints[dirPoints[i]]];
 
       if (thisDelta > 3000 || loop > 7) // point is unknown or robot drive loop
       {
@@ -666,15 +637,15 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
         return !plan.empty();
       }
 
-      if(thisDelta >= p_min_obstacle_dist_){
-        if(obstacle_trans_array_[currentPoint] >= p_min_obstacle_dist_){
+      if(thisDelta >= (unsigned int) p_min_obstacle_dist_){
+        if(obstacle_trans_array_[currentPoint] >= (unsigned int) p_min_obstacle_dist_){
           if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
             minDelta = abs(thisDelta - p_min_obstacle_dist_);
             nextPoint = adjacentPoints[dirPoints[i]];
             oldDirection = dirPoints[i];
           }
         }
-        if(obstacle_trans_array_[currentPoint] < p_min_obstacle_dist_){
+        if(obstacle_trans_array_[currentPoint] < (unsigned int) p_min_obstacle_dist_){
           if(thisDelta > maxDelta){
             maxDelta = thisDelta;
             nextPoint = adjacentPoints[dirPoints[i]];
@@ -746,17 +717,15 @@ void HectorExplorationPlanner::setupMapData()
 #endif
 
   if ((this->map_width_ != costmap_->getSizeInCellsX()) || (this->map_height_ != costmap_->getSizeInCellsY())){
-    this->deleteMapData();
-
     map_width_ = costmap_->getSizeInCellsX();
     map_height_ = costmap_->getSizeInCellsY();
     num_map_cells_ = map_width_ * map_height_;
 
     // initialize exploration_trans_array_, obstacle_trans_array_, goalMap and frontier_map_array_
-    exploration_trans_array_ = new unsigned int[num_map_cells_];
-    obstacle_trans_array_ = new unsigned int[num_map_cells_];
-    is_goal_array_ = new bool[num_map_cells_];
-    frontier_map_array_ = new int[num_map_cells_];
+    exploration_trans_array_.reset(new unsigned int[num_map_cells_]);
+    obstacle_trans_array_.reset(new unsigned int[num_map_cells_]);
+    is_goal_array_.reset(new bool[num_map_cells_]);
+    frontier_map_array_.reset(new int[num_map_cells_]);
     clearFrontiers();
     resetMaps();
   }
@@ -767,22 +736,10 @@ void HectorExplorationPlanner::setupMapData()
 
 void HectorExplorationPlanner::deleteMapData()
 {
-  if(exploration_trans_array_){
-    delete[] exploration_trans_array_;
-    exploration_trans_array_ = 0;
-  }
-  if(obstacle_trans_array_){
-    delete[] obstacle_trans_array_;
-    obstacle_trans_array_ = 0;
-  }
-  if(is_goal_array_){
-    delete[] is_goal_array_;
-    is_goal_array_ = 0;
-  }
-  if(frontier_map_array_){
-    delete[] frontier_map_array_;
-    frontier_map_array_=0;
-  }
+  exploration_trans_array_.reset();
+  obstacle_trans_array_.reset();
+  is_goal_array_.reset();
+  frontier_map_array_.reset();
 }
 
 
@@ -791,8 +748,8 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
   // reset exploration transform
-  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(is_goal_array_, num_map_cells_, false);
+  std::fill_n(exploration_trans_array_.get(), num_map_cells_, INT_MAX);
+  std::fill_n(is_goal_array_.get(), num_map_cells_, false);
 
   std::queue<int> myqueue;
 
@@ -1291,7 +1248,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
         return false;
       }
 
-      inner_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_);
+      inner_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
       unsigned int x,y;
       costmap_->worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
@@ -1407,13 +1364,13 @@ bool HectorExplorationPlanner::isFrontier(int point){
 
 
 void HectorExplorationPlanner::resetMaps(){
-  std::fill_n(exploration_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(obstacle_trans_array_, num_map_cells_, INT_MAX);
-  std::fill_n(is_goal_array_, num_map_cells_, false);
+  std::fill_n(exploration_trans_array_.get(), num_map_cells_, UINT_MAX);
+  std::fill_n(obstacle_trans_array_.get(), num_map_cells_, UINT_MAX);
+  std::fill_n(is_goal_array_.get(), num_map_cells_, false);
 }
 
 void HectorExplorationPlanner::clearFrontiers(){
-  std::fill_n(frontier_map_array_, num_map_cells_, 0);
+  std::fill_n(frontier_map_array_.get(), num_map_cells_, 0);
 }
 
 inline bool HectorExplorationPlanner::isValid(int point){
