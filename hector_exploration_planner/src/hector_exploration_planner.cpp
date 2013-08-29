@@ -161,6 +161,8 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   previous_goal_ = costmap_->getIndex(mx,my);
 
   ROS_INFO("[hector_exploration_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
+
+  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
   return true;
 }
 
@@ -816,6 +818,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     if(!is_goal_array_[point]){
 
       const unsigned int point_cell_danger = cellDanger(point);
+      //const unsigned int point_cell_danger = 0;
 
       for(int i = 0; i < 4; ++i){
         if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger) < minimum){
@@ -1346,14 +1349,17 @@ bool HectorExplorationPlanner::isFrontier(int point){
           int noInfPoints[8];
           getAdjacentPoints(adjacentPoints[i],noInfPoints);
           for(int j = 0; j < 8; j++){
-            if(occupancy_grid_array_[noInfPoints[j]] == costmap_2d::NO_INFORMATION){
-              no_inf_count++;
+
+            if (isValid(noInfPoints[j])){
+              if( occupancy_grid_array_[noInfPoints[j]] == costmap_2d::NO_INFORMATION){
+                ++no_inf_count;
+
+                if(no_inf_count > 2){
+                  return true;
+                }
+              }
             }
           }
-          if(no_inf_count > 2){
-            return true;
-          }
-
         }
       }
     }
@@ -1447,10 +1453,12 @@ bool HectorExplorationPlanner::isSameFrontier(int frontier_point1, int frontier_
 
 inline unsigned int HectorExplorationPlanner::cellDanger(int point){
 
-  if((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
-    return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
-  }
-  return 0;
+  //if((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
+  //  return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
+  //}
+
+  return 8000u - std::min(8000u, obstacle_trans_array_[point]*4);
+  //return 0;
 }
 
 float HectorExplorationPlanner::angleDifference(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
@@ -1487,12 +1495,14 @@ double HectorExplorationPlanner::getYawToUnknown(int point){
   getAdjacentPoints(point,adjacentPoints);
 
   int max_obs_idx = 0;
+  unsigned int max_obs_dist = 0;
 
   for(int i = 0; i < 8; ++i){
     if(isValid(adjacentPoints[i])){
       if(occupancy_grid_array_[adjacentPoints[i]] == costmap_2d::NO_INFORMATION){
-        if(obstacle_trans_array_[adjacentPoints[i]] > obstacle_trans_array_[adjacentPoints[max_obs_idx]]){
+        if(obstacle_trans_array_[adjacentPoints[i]] > max_obs_dist){
           max_obs_idx = i;
+          max_obs_dist = obstacle_trans_array_[adjacentPoints[i]];
         }
       }
     }
@@ -1585,7 +1595,7 @@ inline int HectorExplorationPlanner::left(int point){
 }
 inline int HectorExplorationPlanner::upleft(int point){
   if((point % map_width_ != 0) && (point >= (int)map_width_)){
-    return point-map_width_-1;
+    return point-1-map_width_;
   }
   return -1;
 
