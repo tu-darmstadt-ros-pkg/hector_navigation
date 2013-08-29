@@ -135,7 +135,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   std::vector<geometry_msgs::PoseStamped> goals;
 
   // create obstacle tranform
-  buildobstacle_trans_array_(p_use_inflated_obs_);
+  //buildobstacle_trans_array_(p_use_inflated_obs_);
 
   geometry_msgs::PoseStamped adjusted_goal;
   if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
@@ -817,20 +817,20 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     // calculate the minimum exploration value of all adjacent cells
     if(!is_goal_array_[point]){
 
-      const unsigned int point_cell_danger = cellDanger(point);
+      //const unsigned int point_cell_danger = cellDanger(point);
       //const unsigned int point_cell_danger = 0;
 
       for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger) < minimum){
-          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + point_cell_danger;
+        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i])) < minimum){
+          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i]);
         }
-        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger) < minimum){
-          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + point_cell_danger;
+        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i])) < minimum){
+          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
         }
       }
     }
 
-    // if exploration_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
+    // if exploration_trans_array_ of the point changes, add all adjacent cells (their value might change too)
     if(minimum < exploration_trans_array_[point] || is_goal_array_[point]){
       exploration_trans_array_[point] = minimum;
 
@@ -884,10 +884,10 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
 
       // check all 8 directions
       for(int i = 0; i < 4; ++i){
-        if(isValid(straightPoints[i]) && ((obstacle_trans_array_[straightPoints[i]] + STRAIGHT_COST) < minimum)){
+        if(isValid(straightPoints[i]) && obstacle_trans_array_[straightPoints[i]] < UINT_MAX && ((obstacle_trans_array_[straightPoints[i]] + STRAIGHT_COST) < minimum)){
           minimum = obstacle_trans_array_[straightPoints[i]] + STRAIGHT_COST;
         }
-        if(isValid(diagonalPoints[i]) && ((obstacle_trans_array_[diagonalPoints[i]] + DIAGONAL_COST) < minimum)){
+        if(isValid(diagonalPoints[i]) && obstacle_trans_array_[diagonalPoints[i]] < UINT_MAX && ((obstacle_trans_array_[diagonalPoints[i]] + DIAGONAL_COST) < minimum)){
           minimum = obstacle_trans_array_[diagonalPoints[i]] + DIAGONAL_COST;
         }
       }
@@ -925,7 +925,7 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
 
   int currentPoint = costmap_->getIndex(mx,my);
   int nextPoint = currentPoint;
-  int maxDelta = 0;
+
 
 
   geometry_msgs::PoseStamped trajPoint;
@@ -936,6 +936,8 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
     int thisDelta;
     int adjacentPoints[8];
     getAdjacentPoints(currentPoint,adjacentPoints);
+
+    int maxDelta = 0;
 
     for(int i = 0; i < 8; ++i){
       if(isFree(adjacentPoints[i])){
@@ -1456,8 +1458,10 @@ inline unsigned int HectorExplorationPlanner::cellDanger(int point){
   //if((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
   //  return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
   //}
+  //ROS_INFO("%d", (int)obstacle_trans_array_[point] );
+  return 80000u - std::min(80000u, obstacle_trans_array_[point]*40);
+  //std::cout << obstacle_trans_array_[point] << "\n";
 
-  return 8000u - std::min(8000u, obstacle_trans_array_[point]*4);
   //return 0;
 }
 
