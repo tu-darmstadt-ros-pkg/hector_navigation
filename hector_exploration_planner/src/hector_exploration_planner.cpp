@@ -1653,21 +1653,21 @@ inline int HectorExplorationPlanner::right(int point){
 
 }
 inline int HectorExplorationPlanner::downright(int point){
-  if(((point + 1) % map_width_ != 0) && ((point/map_width_) < (map_width_-1))){
+  if(((point + 1) % map_width_ != 0) && ((point/map_width_) < (map_height_-1))){
     return point+map_width_+1;
   }
   return -1;
 
 }
 inline int HectorExplorationPlanner::down(int point){
-  if((point/map_width_) < (map_width_-1)){
+  if((point/map_width_) < (map_height_-1)){
     return point+map_width_;
   }
   return -1;
 
 }
 inline int HectorExplorationPlanner::downleft(int point){
-  if(((point/map_width_) < (map_width_-1)) && (point % map_width_ != 0)){
+  if(((point/map_width_) < (map_height_-1)) && (point % map_width_ != 0)){
     return point+map_width_-1;
   }
   return -1;
