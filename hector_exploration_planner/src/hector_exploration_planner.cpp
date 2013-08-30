@@ -249,7 +249,8 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     double dx = xw - robotPose.getOrigin().getX();
     double dy = yw - robotPose.getOrigin().getY();
 
-    //Have we reached the previous goal?
+    //If we have not  reached the previous goal, try planning and moving toward it.
+    //If planning fails, we just continue below this block and try to find another inner frontier
     if ( (dx*dx + dy*dy) > 0.5*0.5){
 
       geometry_msgs::PoseStamped robotPoseMsg;
@@ -821,11 +822,21 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
       //const unsigned int point_cell_danger = 0;
 
       for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i]) && (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i])) < minimum){
-          minimum = exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i]);
+        if(isFree(straightPoints[i])){
+
+          unsigned int neighbor_cost = (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i]));
+
+          if (neighbor_cost < minimum){
+            minimum = neighbor_cost;
+          }
         }
-        if(isFree(diagonalPoints[i]) && (exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i])) < minimum){
-          minimum = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
+        if(isFree(diagonalPoints[i])){
+
+          unsigned int neighbor_cost = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
+
+          if (neighbor_cost < minimum){
+            minimum = neighbor_cost;
+          }
         }
       }
     }
@@ -1011,12 +1022,6 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
       allFrontiers.push_back(i);
     }
   }
-
-  tf::Stamped<tf::Pose> robotPose;
-  if(!costmap_ros_->getRobotPose(robotPose)){
-    ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
-  }
-
 
   for(unsigned int i = 0; i < allFrontiers.size(); ++i){
     if(!isFrontierReached(allFrontiers[i])){
@@ -1352,13 +1357,12 @@ bool HectorExplorationPlanner::isFrontier(int point){
           getAdjacentPoints(adjacentPoints[i],noInfPoints);
           for(int j = 0; j < 8; j++){
 
-            if (isValid(noInfPoints[j])){
-              if( occupancy_grid_array_[noInfPoints[j]] == costmap_2d::NO_INFORMATION){
-                ++no_inf_count;
 
-                if(no_inf_count > 2){
-                  return true;
-                }
+            if( isValid(noInfPoints[j]) && occupancy_grid_array_[noInfPoints[j]] == costmap_2d::NO_INFORMATION){
+              ++no_inf_count;
+
+              if(no_inf_count > 2){
+                return true;
               }
             }
           }
@@ -1459,7 +1463,9 @@ inline unsigned int HectorExplorationPlanner::cellDanger(int point){
   //  return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
   //}
   //ROS_INFO("%d", (int)obstacle_trans_array_[point] );
-  return 80000u - std::min(80000u, obstacle_trans_array_[point]*40);
+  //return 80000u - std::min(80000u, obstacle_trans_array_[point]*40);
+
+  return (2000u - std::min(2000u, obstacle_trans_array_[point]))*40u;
   //std::cout << obstacle_trans_array_[point] << "\n";
 
   //return 0;
