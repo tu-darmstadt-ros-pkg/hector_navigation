@@ -132,8 +132,6 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   resetMaps();
   plan.clear();
 
-  std::vector<geometry_msgs::PoseStamped> goals;
-
   // create obstacle tranform
   //buildobstacle_trans_array_(p_use_inflated_obs_);
 
@@ -143,8 +141,9 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
       return false;
   }
 
-  // plan to given goal
-  goals.push_back(adjusted_goal);
+  // Plan to given goal, push single goal into goals vector
+  std::vector<int> goals;
+  goals.push_back(poseToMapCoords(adjusted_goal.pose));
 
   // make plan
   if(!buildexploration_trans_array_(start,goals,true)){
@@ -178,7 +177,7 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   clearFrontiers();
   plan.clear();
 
-  std::vector<geometry_msgs::PoseStamped> goals;
+  std::vector<int> goals;
 
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_);
@@ -227,8 +226,6 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   clearFrontiers();
   plan.clear();
 
-  std::vector<geometry_msgs::PoseStamped> goals;
-
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_);
 
@@ -270,6 +267,8 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     }
   }
 
+  std::vector<geometry_msgs::PoseStamped> goals;
+
   // search for frontiers
   if(findInnerFrontier(goals)){
     ROS_INFO("[hector_exploration_planner] inner-exploration: found %u inner-frontiers!", (unsigned int)goals.size());
@@ -278,12 +277,15 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     return false;
   }
 
+  std::vector<int> goals_int;
+  goals_int.push_back(this->poseToMapCoords(goals[0].pose));
+
   // make plan
-  if(!buildexploration_trans_array_(start,goals,false)){
+  if(!buildexploration_trans_array_(start,goals_int,false)){
     ROS_WARN("[hector_exploration_planner] inner-exploration: Creating exploration transform failed!");
     return false;
   }
-  if(!getTrajectory(start,goals,plan)){
+  if(!getTrajectory(start,goals_int,plan)){
     ROS_WARN("[hector_exploration_planner] inner-exploration: could not plan to inner-frontier. exploration failed!");
     return false;
   }
@@ -457,6 +459,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   }
 }
 
+/*
 bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan){
   ROS_INFO("[hector_exploration_planner] alternative exploration: starting alternative exploration");
 
@@ -496,6 +499,7 @@ bool HectorExplorationPlanner::doAlternativeExploration(const geometry_msgs::Pos
   ROS_INFO("[hector_exploration_planner] alternative exploration: plan to a frontier has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
 }
+*/
 
 float HectorExplorationPlanner::angleDifferenceWall(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
   // setup start positions
@@ -746,7 +750,7 @@ void HectorExplorationPlanner::deleteMapData()
 }
 
 
-bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, bool useAnglePenalty){
+bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<int> goals, bool useAnglePenalty){
 
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
@@ -761,7 +765,9 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   // initialize goals
   for(unsigned int i = 0; i < goals.size(); ++i){
     // setup goal positions
+    /*
     unsigned int mx,my;
+
 
     if(!costmap_->worldToMap(goals[i].pose.position.x,goals[i].pose.position.y,mx,my)){
       //ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
@@ -769,6 +775,8 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     }
 
     int goal_point = costmap_->getIndex(mx,my);
+    */
+    int goal_point = goals[i];
 
     // Ignore free goal for the moment, check after iterating over all goals if there is not valid one at all
     if(!isFree(goal_point)){
@@ -779,7 +787,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
 
     unsigned int init_cost = 0;
     if(false){
-      init_cost = angleDanger(angleDifference(start,goals[i])) * getDistanceWeight(start,goals[i]);
+      //init_cost = angleDanger(angleDifference(start,goals[i])) * getDistanceWeight(start,goals[i]);
     }
 
     exploration_trans_array_[goal_point] = init_cost;
@@ -922,7 +930,7 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
   return true;
 }
 
-bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan){
+bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<int> goals, std::vector<geometry_msgs::PoseStamped> &plan){
 
   ROS_DEBUG("[hector_exploration_planner] getTrajectory");
 
@@ -999,16 +1007,16 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
   return !plan.empty();
 }
 
-bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers){
-  std::vector<geometry_msgs::PoseStamped> empty_vec;
-  return findFrontiers(frontiers,empty_vec);
+bool HectorExplorationPlanner::findFrontiers(std::vector<int> &frontiers){
+  std::vector<int> empty_vec;
+  return findFrontiers(frontiers, empty_vec);
 }
 
 /*
  * searches the occupancy grid for frontier cells and merges them into one target point per frontier.
  * The returned frontiers are in world coordinates.
  */
-bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers){
+bool HectorExplorationPlanner::findFrontiers(std::vector<int>& frontiers, std::vector<int>& noFrontiers){
 
   // get latest costmap
   clearFrontiers();
@@ -1025,6 +1033,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
 
   for(unsigned int i = 0; i < allFrontiers.size(); ++i){
     if(!isFrontierReached(allFrontiers[i])){
+      /*
       geometry_msgs::PoseStamped finalFrontier;
       double wx,wy;
       unsigned int mx,my;
@@ -1041,13 +1050,16 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
       //if(frontier_is_valid){
 
       finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+      */
 
-      frontiers.push_back(finalFrontier);
+      frontiers.push_back(allFrontiers[i]);
     }
     //}
   }
 
   return true;
+
+  /*
 
   // value of the next blob
   int nextBlobValue = 1;
@@ -1190,6 +1202,7 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
 
   }
   return !frontiers.empty();
+  */
 }
 
 bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier){
@@ -1202,14 +1215,14 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
     std::vector<geometry_msgs::PoseStamped>& traj_vector (srv_path.response.trajectory.poses);
 
     // We push poses of the travelled trajectory to the goals vector for building the exploration transform
-    std::vector<geometry_msgs::PoseStamped> goals;
+    std::vector<int> goals;
 
     size_t size = traj_vector.size();
     ROS_DEBUG("[hector_exploration_planner] size of trajectory vector %u", (unsigned int)size);
 
     if(size > 0){
       geometry_msgs::PoseStamped lastPose = traj_vector[size-1];
-      goals.push_back(lastPose);
+      goals.push_back(this->poseToMapCoords(lastPose.pose));
 
       if (size > 1){
 
@@ -1230,7 +1243,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
           // extract points with 0.5m distance (if free)
           if(point_in_free_space){
             if((dx*dx) + (dy*dy) > (0.25*0.25)){
-              goals.push_back(pose);
+              goals.push_back(m_point);
               lastPose = pose;
               collision_allowed = false;
             }
@@ -1385,7 +1398,7 @@ void HectorExplorationPlanner::clearFrontiers(){
   std::fill_n(frontier_map_array_.get(), num_map_cells_, 0);
 }
 
-inline bool HectorExplorationPlanner::isValid(int point){
+inline bool HectorExplorationPlanner::isValid(int point) const{
   return (point>=0);
 }
 
@@ -1500,7 +1513,7 @@ float HectorExplorationPlanner::angleDifference(const geometry_msgs::PoseStamped
 }
 
 // Used to generate direction for frontiers
-double HectorExplorationPlanner::getYawToUnknown(int point){
+double HectorExplorationPlanner::getYawToUnknown(int point) const{
   int adjacentPoints[8];
   getAdjacentPoints(point,adjacentPoints);
 
@@ -1527,14 +1540,15 @@ double HectorExplorationPlanner::getYawToUnknown(int point){
   double yaw = std::atan2(y,x);
 
   return yaw;
-
 }
 
+/*
 unsigned int HectorExplorationPlanner::angleDanger(float angle){
   float angle_fraction = std::pow(angle,3);///M_PI;
   unsigned int result = static_cast<unsigned int>(p_goal_angle_penalty_ * angle_fraction);
   return result;
 }
+*/
 
 float HectorExplorationPlanner::getDistanceWeight(const geometry_msgs::PoseStamped &point1, const geometry_msgs::PoseStamped &point2){
   float distance = std::sqrt(std::pow(point1.pose.position.x - point2.pose.position.x,2) + std::pow(point1.pose.position.y - point2.pose.position.y,2));
@@ -1545,11 +1559,40 @@ float HectorExplorationPlanner::getDistanceWeight(const geometry_msgs::PoseStamp
   }
 }
 
+int HectorExplorationPlanner::poseToMapCoords(const geometry_msgs::Pose& pose) const
+{
+  unsigned int mx, my;
+  if(!costmap_->worldToMap(pose.position.x,pose.position.y,mx,my)){
+    //ROS_WARN("[hector_exploration_planner] The goal coordinates are outside the costmap!");
+  }
+
+  return costmap_->getIndex(mx,my);
+}
+
+geometry_msgs::Pose HectorExplorationPlanner::mapCoordsToPose(int point) const
+{
+  geometry_msgs::Pose pose;
+  double wx,wy;
+  unsigned int mx,my;
+  costmap_->indexToCells(point, mx, my);
+  costmap_->mapToWorld(mx,my,wx,wy);
+  std::string global_frame = costmap_ros_->getGlobalFrameID();
+  pose.position.x = wx;
+  pose.position.y = wy;
+  pose.position.z = 0.0;
+
+  double yaw = getYawToUnknown(point);
+
+  pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+  return pose;
+}
+
 /*
  These functions calculate the index of an adjacent point (left,upleft,up,upright,right,downright,down,downleft) to the
  given point. If there is no such point (meaning the point would cause the index to be out of bounds), -1 is returned.
  */
-inline void HectorExplorationPlanner::getStraightPoints(int point, int points[]){
+inline void HectorExplorationPlanner::getStraightPoints(int point, int points[]) const{
 
   points[0] = left(point);
   points[1] = up(point);
@@ -1558,7 +1601,7 @@ inline void HectorExplorationPlanner::getStraightPoints(int point, int points[])
 
 }
 
-inline void HectorExplorationPlanner::getDiagonalPoints(int point, int points[]){
+inline void HectorExplorationPlanner::getDiagonalPoints(int point, int points[]) const{
 
   points[0] = upleft(point);
   points[1] = upright(point);
@@ -1583,7 +1626,7 @@ inline void HectorExplorationPlanner::getStraightAndDiagonalPoints(int point, in
 }
 */
 
-inline void HectorExplorationPlanner::getAdjacentPoints(int point, int points[]){
+inline void HectorExplorationPlanner::getAdjacentPoints(int point, int points[]) const{
 
   points[0] = left(point);
   points[1] = up(point);
@@ -1596,54 +1639,54 @@ inline void HectorExplorationPlanner::getAdjacentPoints(int point, int points[])
 
 }
 
-inline int HectorExplorationPlanner::left(int point){
+inline int HectorExplorationPlanner::left(int point) const{
   // only go left if no index error and if current point is not already on the left boundary
   if((point % map_width_ != 0)){
     return point-1;
   }
   return -1;
 }
-inline int HectorExplorationPlanner::upleft(int point){
+inline int HectorExplorationPlanner::upleft(int point) const{
   if((point % map_width_ != 0) && (point >= (int)map_width_)){
     return point-1-map_width_;
   }
   return -1;
 
 }
-inline int HectorExplorationPlanner::up(int point){
+inline int HectorExplorationPlanner::up(int point) const{
   if(point >= (int)map_width_){
     return point-map_width_;
   }
   return -1;
 }
-inline int HectorExplorationPlanner::upright(int point){
+inline int HectorExplorationPlanner::upright(int point) const{
   if((point >= (int)map_width_) && ((point + 1) % (int)map_width_ != 0)){
     return point-map_width_+1;
   }
   return -1;
 }
-inline int HectorExplorationPlanner::right(int point){
+inline int HectorExplorationPlanner::right(int point) const{
   if((point + 1) % map_width_ != 0){
     return point+1;
   }
   return -1;
 
 }
-inline int HectorExplorationPlanner::downright(int point){
+inline int HectorExplorationPlanner::downright(int point) const{
   if(((point + 1) % map_width_ != 0) && ((point/map_width_) < (map_height_-1))){
     return point+map_width_+1;
   }
   return -1;
 
 }
-inline int HectorExplorationPlanner::down(int point){
+inline int HectorExplorationPlanner::down(int point) const{
   if((point/map_width_) < (map_height_-1)){
     return point+map_width_;
   }
   return -1;
 
 }
-inline int HectorExplorationPlanner::downleft(int point){
+inline int HectorExplorationPlanner::downleft(int point) const{
   if(((point/map_width_) < (map_height_-1)) && (point % map_width_ != 0)){
     return point+map_width_-1;
   }

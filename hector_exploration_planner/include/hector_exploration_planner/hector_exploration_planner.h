@@ -79,9 +79,9 @@ public:
 
   bool getObservationPose(const geometry_msgs::PoseStamped& observation_pose, const double desired_distance, geometry_msgs::PoseStamped& new_observation_pose);
 
-  bool doAlternativeExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan);
-  bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers);
-  bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers);
+  //bool doAlternativeExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan);
+  bool findFrontiers(std::vector<int> &frontiers, std::vector<int> &noFrontiers);
+  bool findFrontiers(std::vector<int> &frontiers);
   bool findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier);
   
   float angleDifferenceWall(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal);
@@ -94,41 +94,44 @@ private:
     INNER_EXPLORE
   } last_mode_;
 
+  int poseToMapCoords(const geometry_msgs::Pose& pose) const;
+  geometry_msgs::Pose mapCoordsToPose(int point) const;
+
   /**
    * Updates costmap data and resizes internal data structures if costmap size has changed. Should be called once before every planning command
    */
   void setupMapData();
   void deleteMapData();
   bool buildobstacle_trans_array_(bool use_inflated_obstacles);
-  bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty);
-  bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
+  bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<int> goals,bool useAnglePenalty);
+  bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<int> goals, std::vector<geometry_msgs::PoseStamped> &plan);
   bool recoveryMakePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
   unsigned int cellDanger(int point);
-  unsigned int angleDanger(float angle);
+  //unsigned int angleDanger(float angle);
 
   void saveMaps(std::string path);
   void resetMaps();
   void clearFrontiers();
-  bool isValid(int point);
+  bool isValid(int point) const;
   bool isFree(int point);
   bool isFrontier(int point);
   float angleDifference(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal);
   float getDistanceWeight(const geometry_msgs::PoseStamped &point1, const geometry_msgs::PoseStamped &point2);
-  double getYawToUnknown(int point);
+  double getYawToUnknown(int point) const;
   bool isFrontierReached(int point);
   bool isSameFrontier(int frontier_point1,int frontier_point2);
 
-  void getStraightPoints(int point, int points[]);
-  void getDiagonalPoints(int point, int points[]);
-  void getAdjacentPoints(int point, int points[]);
-  int left(int point);
-  int upleft(int point);
-  int up(int point);
-  int upright(int point);
-  int right(int point);
-  int downright(int point);
-  int down(int point);
-  int downleft(int point);
+  void getStraightPoints(int point, int points[]) const;
+  void getDiagonalPoints(int point, int points[]) const;
+  void getAdjacentPoints(int point, int points[]) const;
+  int left(int point) const;
+  int upleft(int point) const;
+  int up(int point) const;
+  int upright(int point) const;
+  int right(int point) const;
+  int downright(int point) const;
+  int down(int point) const;
+  int downleft(int point) const;
 
   ros::Publisher visualization_pub_;
   ros::ServiceClient path_service_client_;
