@@ -347,17 +347,17 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   int closest_x = -1;
   int closest_y = -1;
 
-  int closest_sqr_dist = INT_MAX;
+  unsigned int closest_sqr_dist = UINT_MAX;
 
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
       unsigned int obstacle_trans_val = obstacle_trans_array_[costmap_->getIndex(x,y)];
-      if ( (obstacle_trans_val != INT_MAX) && (obstacle_trans_val != 0) ){
+      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) ){
         int diff_x = (int)mxs - x;
         int diff_y = (int)mys - y;
 
-        int sqr_dist = diff_x*diff_x + diff_y*diff_y;
+        unsigned int sqr_dist = diff_x*diff_x + diff_y*diff_y;
 
         //std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_->getIndex(x,y)] << "\n";
 
@@ -748,7 +748,7 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
   // reset exploration transform
-  std::fill_n(exploration_trans_array_.get(), num_map_cells_, INT_MAX);
+  std::fill_n(exploration_trans_array_.get(), num_map_cells_, UINT_MAX);
   std::fill_n(is_goal_array_.get(), num_map_cells_, false);
 
   std::queue<int> myqueue;
@@ -811,47 +811,26 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
     int diagonalPoints[4];
     getDiagonalPoints(point,diagonalPoints);
 
-
     // calculate the minimum exploration value of all adjacent cells
-    if(!is_goal_array_[point]){
+    for (int i = 0; i < 4; ++i) {
+      if (isFree(straightPoints[i])) {
+        unsigned int neighbor_cost = minimum + STRAIGHT_COST + cellDanger(straightPoints[i]);
 
-      //const unsigned int point_cell_danger = cellDanger(point);
-      //const unsigned int point_cell_danger = 0;
-
-      for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i])){
-
-          unsigned int neighbor_cost = (exploration_trans_array_[straightPoints[i]] + STRAIGHT_COST + cellDanger(straightPoints[i]));
-
-          if (neighbor_cost < minimum){
-            minimum = neighbor_cost;
-          }
-        }
-        if(isFree(diagonalPoints[i])){
-
-          unsigned int neighbor_cost = exploration_trans_array_[diagonalPoints[i]] + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
-
-          if (neighbor_cost < minimum){
-            minimum = neighbor_cost;
-          }
-        }
-      }
-    }
-
-    // if exploration_trans_array_ of the point changes, add all adjacent cells (their value might change too)
-    if(minimum < exploration_trans_array_[point] || is_goal_array_[point]){
-      exploration_trans_array_[point] = minimum;
-
-      for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i]) && !is_goal_array_[straightPoints[i]]){
+        if (exploration_trans_array_[straightPoints[i]] > neighbor_cost) {
+          exploration_trans_array_[straightPoints[i]] = neighbor_cost;
           myqueue.push(straightPoints[i]);
         }
-        if(isFree(diagonalPoints[i]) && !is_goal_array_[diagonalPoints[i]]){
+      }
+
+      if (isFree(diagonalPoints[i])) {
+        unsigned int neighbor_cost = minimum + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
+
+        if (exploration_trans_array_[diagonalPoints[i]] > neighbor_cost) {
+          exploration_trans_array_[diagonalPoints[i]] = neighbor_cost;
           myqueue.push(diagonalPoints[i]);
         }
       }
     }
-
   }
 
   ROS_DEBUG("[hector_exploration_planner] END: buildexploration_trans_array_");
@@ -1261,7 +1240,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
 
       for(unsigned int i = 0; i < num_map_cells_; ++i){
 
-        if(exploration_trans_array_[i] < INT_MAX){
+        if(exploration_trans_array_[i] < UINT_MAX){
           if(exploration_trans_array_[i] > max_exploration_trans_val){
             if(!isFrontierReached(i)){
               max_exploration_trans_point = i;
@@ -1448,16 +1427,16 @@ bool HectorExplorationPlanner::isSameFrontier(int frontier_point1, int frontier_
 
 inline unsigned int HectorExplorationPlanner::cellDanger(int point){
 
-  //if((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
-  //  return p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point],2);
-  //}
+  if ((int)obstacle_trans_array_[point] <= p_min_obstacle_dist_){
+    return static_cast<unsigned int>(p_alpha_ * std::pow(p_min_obstacle_dist_ - obstacle_trans_array_[point], 2) + .5);
+  }
   //ROS_INFO("%d", (int)obstacle_trans_array_[point] );
   //return 80000u - std::min(80000u, obstacle_trans_array_[point]*40);
 
-  return (2000u - std::min(2000u, obstacle_trans_array_[point]))*40u;
+  //return (2000u - std::min(2000u, obstacle_trans_array_[point])) / 500u;
   //std::cout << obstacle_trans_array_[point] << "\n";
 
-  //return 0;
+  return 0;
 }
 
 float HectorExplorationPlanner::angleDifference(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal){
