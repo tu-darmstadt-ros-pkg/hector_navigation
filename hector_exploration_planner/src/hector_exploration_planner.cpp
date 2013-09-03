@@ -97,7 +97,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
   vis_.reset(new ExplorationTransformVis("exploration_transform"));
   inner_vis_.reset(new ExplorationTransformVis("inner_exploration_transform"));
-
+  obstacle_vis_.reset(new ExplorationTransformVis("obstacle_transform"));
 }
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
@@ -110,6 +110,7 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
   p_same_frontier_dist_ = config.same_frontier_distance;
   p_min_frontier_size_ = config.min_frontier_size;
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
+  p_obstacle_cutoff_dist_ = config.obstacle_cutoff_distance;
 }
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
@@ -161,8 +162,6 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   previous_goal_ = costmap_->getIndex(mx,my);
 
   ROS_INFO("[hector_exploration_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
-
-  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
   return true;
 }
 
@@ -197,8 +196,6 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   if(!buildexploration_trans_array_(start,goals,true)){
     return false;
   }
-
-  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
   if(!getTrajectory(start,goals,plan)){
     ROS_INFO("[hector_exploration_planner] exploration: could not plan to frontier, starting inner-exploration");
@@ -858,8 +855,9 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   }
 
   ROS_DEBUG("[hector_exploration_planner] END: buildexploration_trans_array_");
-  return true;
 
+  vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
+  return true;
 }
 
 bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obstacles){
@@ -879,12 +877,15 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
     }
   }
 
+  unsigned int obstacle_cutoff_value = static_cast<unsigned int>((p_obstacle_cutoff_dist_ / costmap_->getResolution()) * STRAIGHT_COST + 0.5);
+
   // obstacle transform algorithm
   while(myqueue.size()){
     int point = myqueue.front();
     myqueue.pop();
 
     unsigned int minimum = obstacle_trans_array_[point];
+    if (minimum > obstacle_cutoff_value) continue;
 
     int straightPoints[4];
     getStraightPoints(point,straightPoints);
@@ -903,7 +904,10 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
       }
     }
   }
+
   ROS_DEBUG("[hector_exploration_planner] END: buildobstacle_trans_array_");
+
+  obstacle_vis_->publishVisOnDemand(*costmap_, obstacle_trans_array_.get());
   return true;
 }
 

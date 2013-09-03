@@ -158,11 +158,13 @@ private:
   double p_alpha_;
   double p_dist_for_goal_reached_;
   double p_same_frontier_dist_;
+  double p_obstacle_cutoff_dist_;
 
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 
   boost::shared_ptr<ExplorationTransformVis> vis_;
   boost::shared_ptr<ExplorationTransformVis> inner_vis_;
+  boost::shared_ptr<ExplorationTransformVis> obstacle_vis_;
 
 };
 }
