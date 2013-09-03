@@ -891,30 +891,15 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
     int diagonalPoints[4];
     getDiagonalPoints(point,diagonalPoints);
 
-    if(obstacle_trans_array_[point] != 0){
-
-      // check all 8 directions
-      for(int i = 0; i < 4; ++i){
-        if(isValid(straightPoints[i]) && obstacle_trans_array_[straightPoints[i]] < UINT_MAX && ((obstacle_trans_array_[straightPoints[i]] + STRAIGHT_COST) < minimum)){
-          minimum = obstacle_trans_array_[straightPoints[i]] + STRAIGHT_COST;
-        }
-        if(isValid(diagonalPoints[i]) && obstacle_trans_array_[diagonalPoints[i]] < UINT_MAX && ((obstacle_trans_array_[diagonalPoints[i]] + DIAGONAL_COST) < minimum)){
-          minimum = obstacle_trans_array_[diagonalPoints[i]] + DIAGONAL_COST;
-        }
+    // check all 8 directions
+    for(int i = 0; i < 4; ++i){
+      if (isValid(straightPoints[i]) && (obstacle_trans_array_[straightPoints[i]] > minimum + STRAIGHT_COST)) {
+        obstacle_trans_array_[straightPoints[i]] = minimum + STRAIGHT_COST;
+        myqueue.push(straightPoints[i]);
       }
-    }
-
-    // if obstacle_trans_array_ of the point changes, add all adjacent cells (theirs might change too)
-    if((minimum < obstacle_trans_array_[point]) || (obstacle_trans_array_[point] == 0)){
-      obstacle_trans_array_[point] = minimum;
-
-      for(int i = 0; i < 4; ++i){
-        if(isFree(straightPoints[i])){
-          myqueue.push(straightPoints[i]);
-        }
-        if(isFree(diagonalPoints[i])){
-          myqueue.push(diagonalPoints[i]);
-        }
+      if (isValid(diagonalPoints[i]) && (obstacle_trans_array_[diagonalPoints[i]] > minimum + DIAGONAL_COST)) {
+        obstacle_trans_array_[diagonalPoints[i]] = minimum + DIAGONAL_COST;
+        myqueue.push(diagonalPoints[i]);
       }
     }
   }
