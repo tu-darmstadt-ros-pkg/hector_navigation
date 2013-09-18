@@ -155,6 +155,20 @@ void CostMapCalculation::updateMapParamsCallback(const nav_msgs::MapMetaData& ma
 {
     ROS_DEBUG("HectorCM: received new map meta data -> overwrite old parameters");
 
+    // check if new parameters differ and abort otherwise
+    if (cost_map.info.width == map_meta_data.width &&
+        cost_map.info.height == map_meta_data.height &&
+        cost_map.info.resolution == map_meta_data.resolution &&
+        cost_map.info.origin.position.x == map_meta_data.origin.position.x &&
+        cost_map.info.origin.position.y == map_meta_data.origin.position.y &&
+        cost_map.info.origin.position.z == map_meta_data.origin.position.z &&
+        cost_map.info.origin.orientation.x == map_meta_data.origin.orientation.x &&
+        cost_map.info.origin.orientation.y == map_meta_data.origin.orientation.y &&
+        cost_map.info.origin.orientation.z == map_meta_data.origin.orientation.z &&
+        cost_map.info.origin.orientation.w == map_meta_data.origin.orientation.w) {
+      return;
+    }
+
     // set new parameters
     cost_map.info.width = map_meta_data.width;
     cost_map.info.height = map_meta_data.height;
