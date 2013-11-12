@@ -9,4 +9,5 @@ docs/
 hector_costmap/src/hector_costmap/
 hector_elevation_msgs/src/hector_elevation_msgs/
 hector_exploration_planner/src/hector_exploration_planner/
+hector_elevation_visualization/src/hector_elevation_visualization/
 *.user
