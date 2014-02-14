@@ -38,9 +38,6 @@
 #define STRAIGHT_COST 100
 #define DIAGONAL_COST 141
 
-//#define STRAIGHT_COST 3
-//#define DIAGONAL_COST 4
-
 using namespace hector_exploration_planner;
 
 HectorExplorationPlanner::HectorExplorationPlanner()
