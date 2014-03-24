@@ -1,5 +1,5 @@
 <launch>
-  <node pkg="nodelet" type="nodelet" name="ElevationMapping" args="load hector_elevation_mapping/ElevationMapping openni/openni_nodelet_manager" output="screen">
+  <node pkg="nodelet" type="nodelet" name="ElevationMapping" args="load hector_elevation_mapping/ElevationMapping openni_nodelet_manager" output="screen">
     <param name="elevation_resolution" value="0.01" />
     <param name="elevation_zero_level" value="16384" />
     <param name="min_observable_elevation" value="-1.0" />
