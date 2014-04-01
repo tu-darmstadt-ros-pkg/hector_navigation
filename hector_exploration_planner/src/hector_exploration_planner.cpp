@@ -149,7 +149,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
       return false;
   }
 
-  goal_pose_pub_.publish(adjusted_goal);
+  observation_pose_pub_.publish(adjusted_goal);
 
   // plan to given goal
   goals.push_back(adjusted_goal);
