@@ -130,6 +130,9 @@ private:
   int down(int point);
   int downleft(int point);
 
+  ros::Publisher observation_pose_pub_;
+  ros::Publisher goal_pose_pub_;
+
   ros::Publisher visualization_pub_;
   ros::ServiceClient path_service_client_;
   costmap_2d::Costmap2DROS* costmap_ros_;

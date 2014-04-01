@@ -80,7 +80,10 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   // initialize parameters
   ros::NodeHandle private_nh_("~/" + name);
   ros::NodeHandle nh;
-  visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
+  visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
+
+  observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, true);
+  goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, true);
 
   dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>());
 
@@ -138,11 +141,15 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   // create obstacle tranform
   //buildobstacle_trans_array_(p_use_inflated_obs_);
 
+  goal_pose_pub_.publish(original_goal);
+
   geometry_msgs::PoseStamped adjusted_goal;
   if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
       ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
       return false;
   }
+
+  goal_pose_pub_.publish(adjusted_goal);
 
   // plan to given goal
   goals.push_back(adjusted_goal);
