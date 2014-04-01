@@ -352,8 +352,11 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
-      unsigned int obstacle_trans_val = obstacle_trans_array_[costmap_->getIndex(x,y)];
-      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) ){
+      unsigned int point = costmap_->getIndex(x,y);
+
+      unsigned int obstacle_trans_val = obstacle_trans_array_[point];
+
+      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION)){
         int diff_x = (int)mxs - x;
         int diff_y = (int)mys - y;
 
