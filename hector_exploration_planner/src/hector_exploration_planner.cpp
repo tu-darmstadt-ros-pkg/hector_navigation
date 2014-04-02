@@ -365,7 +365,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
       unsigned int obstacle_trans_val = obstacle_trans_array_[point];
 
-      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION)){
+      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION) && (p_min_obstacle_dist_ < obstacle_trans_val)){
         int diff_x = (int)mxs - x;
         int diff_y = (int)mys - y;
 
@@ -373,16 +373,18 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
         //std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_->getIndex(x,y)] << " sqr_min_obst_dist" << p_min_obstacle_dist_ << "\n";
 
-        if ((sqr_dist < closest_sqr_dist) && (p_min_obstacle_dist_ < obstacle_trans_array_[costmap_->getIndex(x,y)])){
+        if ((sqr_dist < closest_sqr_dist)){
 
           Eigen::Vector2f curr_dir_vec(static_cast<float>(diff_x), static_cast<float>(diff_y));
           curr_dir_vec.normalize();
 
           if (curr_dir_vec.dot(obs_pose_dir_vec) > 0){
+std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_->getIndex(x,y)] << " sqr_min_obst_dist" << p_min_obstacle_dist_ << "\n";
 
             closest_x = (unsigned int)x;
             closest_y = (unsigned int)y;
             closest_sqr_dist = sqr_dist;
+
           }
         }
       }
