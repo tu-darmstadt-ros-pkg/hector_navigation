@@ -1025,7 +1025,9 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     //}
   }
 
-  return true;
+  return (frontiers.size() > 0);
+
+  //@TODO: Review and possibly remove unused code below
 
   // value of the next blob
   int nextBlobValue = 1;
