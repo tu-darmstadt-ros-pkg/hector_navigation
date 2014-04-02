@@ -24,7 +24,6 @@
 #include <dynamic_reconfigure/server.h>
 #include <hector_costmap/CostMapCalculationConfig.h>
 
-
 class CostMapCalculation{
 
 public:
@@ -122,6 +121,13 @@ private:
     /// This function fuses the elevation and grid map und calculates the 2d cost map
     /**
     * \param [in] map_level set the method to calculate the 2d cost map
+    * \retval true if everything went fine, otherwise false
+    */
+    bool calculateCostMap_old(char map_level);
+
+    /// This function fuses the elevation and grid map und calculates the 2d cost map
+    /**
+    * \param [in] map_level set the method to calculate the 2d cost map (binary encoded)
     * \retval true if everything went fine, otherwise false
     */
     bool calculateCostMap(char map_level);
