@@ -962,8 +962,8 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
     double yaw_path = std::atan2(dy,dx);
     trajPoint.pose.orientation.x = 0.0;
     trajPoint.pose.orientation.y = 0.0;
-    trajPoint.pose.orientation.z = sin(yaw_path*0.5f);
-    trajPoint.pose.orientation.w = cos(yaw_path*0.5f);
+    trajPoint.pose.orientation.z = 0.0;//sin(yaw_path*0.5f);
+    trajPoint.pose.orientation.w = 0.0;//cos(yaw_path*0.5f);
 
     plan.push_back(trajPoint);
 
