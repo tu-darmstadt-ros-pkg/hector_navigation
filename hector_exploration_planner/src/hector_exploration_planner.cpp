@@ -82,8 +82,8 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   ros::NodeHandle nh;
   visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
-  observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, true);
-  goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, true);
+  observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, false);
+  goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, false);
 
   dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>(ros::NodeHandle("~/hector_exploration_planner")));
 
@@ -325,7 +325,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
   Eigen::Vector2f obs_pose_dir_vec (cos(pose_yaw), sin(pose_yaw));
 
-  this->buildobstacle_trans_array_(true);
+  this->buildobstacle_trans_array_(p_use_inflated_obs_);
 
   int searchSize = 2.0 / costmap_->getResolution();
 
@@ -356,6 +356,8 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
   unsigned int closest_sqr_dist = UINT_MAX;
 
+  //unsigned int min_obstacle_distance_sqr =   p_min_obstacle_dist_ * p_min_obstacle_dist_;
+
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
@@ -369,9 +371,9 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
         unsigned int sqr_dist = diff_x*diff_x + diff_y*diff_y;
 
-        //std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_->getIndex(x,y)] << "\n";
+        //std::cout << "diff: " << diff_x << " , " << diff_y << " sqr_dist: " << sqr_dist << " pos: " << x << " , " << y << " closest sqr dist: " << closest_sqr_dist << " obstrans " << obstacle_trans_array_[costmap_->getIndex(x,y)] << " sqr_min_obst_dist" << p_min_obstacle_dist_ << "\n";
 
-        if (sqr_dist < closest_sqr_dist){
+        if ((sqr_dist < closest_sqr_dist) && (p_min_obstacle_dist_ < obstacle_trans_array_[costmap_->getIndex(x,y)])){
 
           Eigen::Vector2f curr_dir_vec(static_cast<float>(diff_x), static_cast<float>(diff_y));
           curr_dir_vec.normalize();
