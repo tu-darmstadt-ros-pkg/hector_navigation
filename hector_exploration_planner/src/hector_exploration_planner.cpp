@@ -85,7 +85,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, true);
   goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, true);
 
-  dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>());
+  dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>(ros::NodeHandle("~/hector_exploration_planner")));
 
   dyn_rec_server_->setCallback(boost::bind(&HectorExplorationPlanner::dynRecParamCallback, this, _1, _2));
 
@@ -1025,7 +1025,9 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     //}
   }
 
-  return true;
+  return (frontiers.size() > 0);
+
+  //@TODO: Review and possibly remove unused code below
 
   // value of the next blob
   int nextBlobValue = 1;

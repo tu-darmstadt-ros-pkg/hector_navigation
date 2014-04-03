@@ -5,6 +5,7 @@
 #rosbuild_link_boost(${PROJECT_NAME} thread)
 #rosbuild_add_executable(example examples/example.cpp)
 #target_link_libraries(example ${PROJECT_NAME})
+#set(ROS_BUILD_TYPE Debug)
 
 find_package(OpenCV REQUIRED)
 
