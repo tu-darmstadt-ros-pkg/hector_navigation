@@ -1,0 +1,8 @@
+<launch>
+  <node pkg="hector_elevation_visualization" type="hector_elevation_visualization" name="hector_elevation_visualization" output="screen" respawn="false">
+    <param name="max_height_levels" value="10" />
+    <param name="max_height" value="1.0" />
+    <param name="elevation_map_frame_id" value="/elevation_map_local" />
+    <param name="sys_msg_topic" value="/syscommand" />
+  </node>
+</launch>
