@@ -8,6 +8,8 @@ find_package(catkin REQUIRED COMPONENTS
   roscpp
   rospy
   std_msgs
+  hector_path_follower
+  hector_nav_msgs
 )
 
 ## System dependencies are found with CMake's conventions
@@ -110,9 +112,9 @@ add_executable(simple_exploration_controller src/simple_exploration_controller.c
 # add_dependencies(hector_exploration_controller_node hector_exploration_controller_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(hector_exploration_controller_node
-#   ${catkin_LIBRARIES}
-# )
+target_link_libraries(simple_exploration_controller
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
