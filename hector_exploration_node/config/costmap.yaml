@@ -1,0 +1,25 @@
+global_costmap:
+
+  map_type: costmap
+  track_unknown_space: true
+  unknown_cost_value: 255
+  obstacle_range: 2.5
+  raytrace_range: 3.0
+  footprint: [[0.25, 0.21],
+              [-0.25, 0.21],
+              [-0.25, -0.21],
+              [0.25, -0.21]]
+  inflation_radius: 0.32
+  #transform_tolerance: 0.5
+  inscribed_radius: 0.3
+  circumscribed_radius: 0.32
+
+  global_frame: /map
+  robot_base_frame: /base_link
+  update_frequency: 0.5
+  publish_frequency: 0.1
+  static_map: true
+  rolling_window: false
+
+  #Investigate what this actually does
+  cost_scaling_factor: 10.0

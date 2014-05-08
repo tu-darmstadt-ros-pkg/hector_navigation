@@ -1,29 +1,17 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(hector_exploration_planner)
+project(hector_exploration_node)
 
 ## Find catkin macros and libraries
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
-  costmap_2d
-  dynamic_reconfigure
-  geometry_msgs
+  hector_exploration_planner
   hector_nav_msgs
-  nav_core
-  nav_msgs
-  pluginlib
-  rosconsole
-  roscpp
-  rospy
 )
 
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
-find_package(Eigen REQUIRED)
 
-generate_dynamic_reconfigure_options(
-  cfg/ExplorationPlanner.cfg
-)
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
@@ -78,7 +66,7 @@ generate_dynamic_reconfigure_options(
 ## Generate added messages and services with any dependencies listed here
 # generate_messages(
 #   DEPENDENCIES
-#   geometry_msgs#   hector_nav_msgs#   nav_msgs
+#   hector_nav_msgs
 # )
 
 ###################################
@@ -91,9 +79,9 @@ generate_dynamic_reconfigure_options(
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-  INCLUDE_DIRS include
-  LIBRARIES hector_exploration_base_global_planner_plugin
-  CATKIN_DEPENDS costmap_2d dynamic_reconfigure geometry_msgs hector_nav_msgs nav_core nav_msgs pluginlib rosconsole roscpp rospy
+#  INCLUDE_DIRS include
+#  LIBRARIES hector_exploration_node
+#  CATKIN_DEPENDS hector_exploration_planner hector_nav_msgs
 #  DEPENDS system_lib
 )
 
@@ -105,32 +93,26 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
-  include
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
-# add_library(hector_exploration_planner
-#   src/${PROJECT_NAME}/hector_exploration_planner.cpp
+# add_library(hector_exploration_node
+#   src/${PROJECT_NAME}/hector_exploration_node.cpp
 # )
-add_library(${PROJECT_NAME} src/hector_exploration_planner.cpp)
-add_library(hector_exploration_base_global_planner_plugin src/hector_exploration_base_global_planner_plugin.cpp)
 
 ## Declare a cpp executable
-# add_executable(hector_exploration_planner_node src/hector_exploration_planner_node.cpp)
+# add_executable(hector_exploration_node_node src/hector_exploration_node_node.cpp)
+add_executable(exploration_planner_node src/exploration_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(hector_exploration_planner_node hector_exploration_planner_generate_messages_cpp)
-add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
-add_dependencies(hector_exploration_base_global_planner_plugin ${PROJECT_NAME}_gencfg)
+# add_dependencies(hector_exploration_node_node hector_exploration_node_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-# target_link_libraries(hector_exploration_planner_node
-#   ${catkin_LIBRARIES}
-# )
-
-target_link_libraries(hector_exploration_base_global_planner_plugin ${PROJECT_NAME})
+target_link_libraries(exploration_planner_node
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##
@@ -147,11 +129,11 @@ target_link_libraries(hector_exploration_base_global_planner_plugin ${PROJECT_NA
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS hector_exploration_base_global_planner_plugin ${PROJECT_NAME}
+# install(TARGETS hector_exploration_node hector_exploration_node_node
 #   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
 #   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-)
+# )
 
 ## Mark cpp header files for installation
 # install(DIRECTORY include/${PROJECT_NAME}/
@@ -172,7 +154,7 @@ target_link_libraries(hector_exploration_base_global_planner_plugin ${PROJECT_NA
 #############
 
 ## Add gtest based cpp test target and link libraries
-# catkin_add_gtest(${PROJECT_NAME}-test test/test_hector_exploration_planner.cpp)
+# catkin_add_gtest(${PROJECT_NAME}-test test/test_hector_exploration_node.cpp)
 # if(TARGET ${PROJECT_NAME}-test)
 #   target_link_libraries(${PROJECT_NAME}-test ${PROJECT_NAME})
 # endif()
