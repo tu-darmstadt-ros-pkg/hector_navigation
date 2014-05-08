@@ -99,11 +99,12 @@ catkin_package(
 ## Your package locations should be listed before other locations
 # include_directories(include)
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
 ## Declare a cpp library
-add_library(ElevationMapping src/hector_elevation_mapping.h src/hector_elevation_mapping.cpp)
+add_library(ElevationMapping src/hector_elevation_mapping.cpp)
 
 ## Declare a cpp executable
 add_executable(ElevationMappingNode src/hector_elevation_mapping_node.cpp)
