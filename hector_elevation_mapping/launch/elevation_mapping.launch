@@ -1,0 +1,35 @@
+<launch>
+  <node pkg="nodelet" type="nodelet" name="elevation_mapping" args="load hector_elevation_mapping/ElevationMapping openni/openni_nodelet_manager" output="screen">
+    <remap from="openni/syscommand" to="syscommand" />
+    <remap from="openni/scanmatcher_map_metadata" to="scanmatcher_map_metadata" />
+    <remap from="elevation_mapping/elevation_map_local" to="elevation_map_local" />
+    <remap from="elevation_mapping/elevation_map_local_metadata" to="elevation_map_local_metadata" />
+    <remap from="elevation_mapping/elevation_map_global" to="elevation_map_global" />
+    <remap from="elevation_mapping/elevation_map_global_metadata" to="elevation_map_global_metadata" />
+    <param name="elevation_resolution" value="0.01" />
+    <param name="elevation_zero_level" value="16384" />
+    <param name="min_observable_elevation" value="-1.0" />
+    <param name="max_observable_elevation" value="0.5" />
+    <param name="max_observable_distance" value="4.0" /> 
+    <param name="sensor_variance" value="0.001" />   
+    <param name="map_frame_id" value="map" />
+    <param name="local_map_frame_id" value="base_stabilized" />
+    <param name="local_elevation_map_topic" value="elevation_map_local" />
+    <param name="gloabl_elevation_map_topic" value="elevation_map_global" />
+    <param name="point_cloud_topic" value="depth/points"/>
+    <param name="grid_map_topic" value="scanmatcher_map"/>
+    <param name="sys_msg_topic" value="syscommand" />
+    <param name="publish_poseupdate" value="false" />
+    <param name="poseupdate_pub_period" value="1.0" />
+    <param name="poseupdate_height_covariance" value="0.25" />
+    <param name="poseupdate_used_pattern_size" value="3" />
+<!-- Not necessary to set, set by scanmatcher -->
+    <!--param name="map_resolution" value="0.05" /-->
+    <!--param name="max_grid_size_x" value="1024" /-->
+    <!--param name="max_grid_size_y" value="1024" /-->
+</node>
+</launch>
+
+
+
+ 

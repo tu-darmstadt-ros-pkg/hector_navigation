@@ -1,0 +1,7 @@
+<library path="lib/libElevationMapping">
+  <class name="hector_elevation_mapping/ElevationMapping" type="hector_elevation_mapping::ElevationMapping" base_class_type="nodelet::Nodelet">
+  <description>
+  Elevation mapping based on point clouds
+  </description>
+  </class>
+</library>
