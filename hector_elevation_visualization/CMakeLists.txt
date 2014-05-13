@@ -84,11 +84,10 @@ find_package(Eigen REQUIRED)
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
- INCLUDE_DIRS include
-  LIBRARIES hector_elevation_visualization
+  INCLUDE_DIRS include
+#  LIBRARIES hector_elevation_visualization
   CATKIN_DEPENDS dynamic_reconfigure hector_elevation_msgs hector_map_tools roscpp tf visualization_msgs
- DEPENDS system_lib
-  eigen
+  DEPENDS system_lib eigen
 )
 
 ###########
@@ -97,8 +96,8 @@ catkin_package(
 
 ## Specify additional locations of header files
 ## Your package locations should be listed before other locations
- include_directories(include)
 include_directories(
+  include
   ${catkin_INCLUDE_DIRS}
 )
 
@@ -113,11 +112,12 @@ add_executable(hector_elevation_visualization_node src/hector_elevation_visualiz
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(hector_elevation_visualization_node hector_elevation_visualization_generate_messages_cpp)
+add_dependencies(hector_elevation_visualization_node hector_elevation_msgs_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
- target_link_libraries(hector_elevation_visualization_node
-   ${catkin_LIBRARIES}
- )
+target_link_libraries(hector_elevation_visualization_node
+  ${catkin_LIBRARIES}
+)
 
 #############
 ## Install ##

@@ -85,9 +85,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## CATKIN_DEPENDS: catkin_packages dependent projects also need
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
-#  INCLUDE_DIRS include
-#  LIBRARIES hector_elevation_mapping
-#  CATKIN_DEPENDS geometry_msgs hector_elevation_msgs hector_map_tools nodelet pcl_ros roscpp sensor_msgs tf
+  INCLUDE_DIRS include
+  LIBRARIES ElevationMapping
+  CATKIN_DEPENDS geometry_msgs hector_elevation_msgs hector_map_tools nodelet pcl_ros roscpp sensor_msgs tf
 #  DEPENDS system_lib
 )
 
@@ -111,7 +111,8 @@ add_executable(ElevationMappingNode src/hector_elevation_mapping_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(hector_elevation_mapping_node hector_elevation_mapping_generate_messages_cpp)
+add_dependencies(ElevationMapping hector_elevation_msgs_generate_messages_cpp)
+add_dependencies(ElevationMappingNode hector_elevation_msgs_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
 target_link_libraries(ElevationMapping

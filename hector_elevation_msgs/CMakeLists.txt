@@ -5,8 +5,8 @@ project(hector_elevation_msgs)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  message_generation
   geometry_msgs
-  nav_msgs
   std_msgs
 )
 
@@ -46,8 +46,8 @@ find_package(catkin REQUIRED COMPONENTS
 ## Generate messages in the 'msg' folder
 add_message_files(
   FILES
-  ElevationGrid.msg
   ElevationMapMetaData.msg
+  ElevationGrid.msg
 )
 
 ## Generate services in the 'srv' folder
@@ -68,7 +68,6 @@ add_message_files(
 generate_messages(
   DEPENDENCIES
   geometry_msgs
-  nav_msgs
   std_msgs
 )
 
@@ -84,7 +83,7 @@ generate_messages(
 catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES hector_elevation_msgs
-#  CATKIN_DEPENDS geometry_msgs nav_msgs std_msgs
+  CATKIN_DEPENDS message_runtime geometry_msgs std_msgs
 #  DEPENDS system_lib
 )
 
