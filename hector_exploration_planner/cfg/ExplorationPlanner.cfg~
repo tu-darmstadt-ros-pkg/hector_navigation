@@ -1,5 +1,6 @@
 #! /usr/bin/env python
 PACKAGE='hector_exploration_planner'
+#import roslib; roslib.load_manifest(PACKAGE)
 
 from dynamic_reconfigure.parameter_generator_catkin import *
 

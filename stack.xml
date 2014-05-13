@@ -1,9 +1,0 @@
-<stack>
-  <description brief="hector_navigation">hector_navigation provides packages related to navigation of unmanned vehicles in USAR environments</description>
-  <author>Stefan Kohlbrecher, Thorsten Graber</author>
-  <license>BSD</license>  
-  <review status="unreviewed" notes=""/>
-  <url>http://ros.org/wiki/hector_navigation</url>
-  <depend stack="ros" />
-
-</stack>

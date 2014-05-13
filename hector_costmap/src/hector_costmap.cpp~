@@ -1,4 +1,4 @@
-#include <hector_costmap/hector_costmap.h>
+#include "hector_costmap.h"
 
 // compute linear index for given map coords
 #define MAP_IDX(sx, i, j) ((sx) * (j) + (i))

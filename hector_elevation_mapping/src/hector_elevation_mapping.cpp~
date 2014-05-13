@@ -1,6 +1,6 @@
 #include <pluginlib/class_list_macros.h>
 #include <nodelet/nodelet.h>
-#include <hector_elevation_mapping/hector_elevation_mapping.h>
+#include "hector_elevation_mapping.h" 
 
 // compute linear index for given map coords
 #define MAP_IDX(sx, i, j) ((sx) * (j) + (i))

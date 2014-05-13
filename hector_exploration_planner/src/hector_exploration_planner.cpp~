@@ -26,7 +26,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#include <hector_exploration_planner/hector_exploration_planner.h>
+#include "hector_exploration_planner/hector_exploration_planner.h"
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
