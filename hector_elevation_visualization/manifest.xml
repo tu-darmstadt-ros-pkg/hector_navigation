@@ -12,9 +12,10 @@
   <depend package="hector_elevation_msgs"/>
   <depend package="tf"/>
   <depend package="hector_map_tools"/>
-  <depend package="dynamic_reconfigure" />
+  <depend package="dynamic_reconfigure"/>
   
-  <rosdep name="eigen" />
+  <depend package="cmake_modules"/>
+  <rosdep name="eigen"/>
 
 </package>
 
