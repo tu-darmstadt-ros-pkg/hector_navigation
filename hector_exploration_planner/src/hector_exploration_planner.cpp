@@ -162,7 +162,14 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   return true;
 }
 
-bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
+bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped>* other_plan){
+
+
+  if (other_plan != 0){
+    //Do something special
+      size_t size = other_plan->size();
+  }
+
 
   ROS_INFO("[hector_exploration_planner] exploration: starting exploration");
 
@@ -176,8 +183,9 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   std::vector<geometry_msgs::PoseStamped> goals;
 
+  // ANSATZ FUER MOEGLICHE VERWENDUNG DES ZWEITEN PFADES
   // create obstacle tranform
-  buildobstacle_trans_array_(p_use_inflated_obs_);
+  buildobstacle_trans_array_(p_use_inflated_obs_, other_plan);
 
   // search for frontiers
   if(findFrontiers(goals)){
@@ -836,9 +844,25 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   return true;
 }
 
-bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obstacles){
+bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obstacles, std::vector<geometry_msgs::PoseStamped>* other_plan){
   ROS_DEBUG("[hector_exploration_planner] buildobstacle_trans_array_");
   std::queue<int> myqueue;
+
+  if (!other_plan == 0) {
+      unsigned int other_plan_size = other_plan->size();
+
+      // create obstacle from other robot's plans
+      unsigned int mx,my;
+      for (unsigned int i=0; i<other_plan_size; ++i) {
+          if(!costmap_->worldToMap(other_plan->at(i).pose.position.x,other_plan->at(i).pose.position.y,mx,my)){
+            ROS_WARN("[hector_exploration_planner] The start coordinates are outside the costmap!");
+            return false;
+          }
+          int currentPoint = costmap_->getIndex(mx,my);
+          myqueue.push(currentPoint);
+          obstacle_trans_array_[currentPoint] = 0;
+      }
+  }
 
   // init obstacles
   for(unsigned int i=0; i < num_map_cells_; ++i){
