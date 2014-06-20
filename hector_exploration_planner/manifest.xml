@@ -11,7 +11,7 @@
 
   <depend package="roscpp"/>
   <depend package="rospy"/>
-  <depend package="dynamic_reconfigure" />
+  <depend package="dynamic_reconfigure"/>
 
   <depend package="geometry_msgs"/>
   <depend package="costmap_2d"/>
@@ -21,7 +21,8 @@
   <depend package="rosconsole"/>
   <depend package="hector_nav_msgs"/>
 
-  <rosdep name="eigen" />
+  <depend package="cmake_modules"/>
+  <rosdep name="eigen"/>
 
   <export>
     <nav_core plugin="${prefix}/hector_exploration_base_global_planner_plugin.xml" />

@@ -77,9 +77,12 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   // initialize parameters
   ros::NodeHandle private_nh_("~/" + name);
   ros::NodeHandle nh;
-  visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 0);
+  visualization_pub_ = private_nh_.advertise<visualization_msgs::Marker>("visualization_marker", 1);
 
-  dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>());
+  observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, true);
+  goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, true);
+
+  dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>(ros::NodeHandle("~/hector_exploration_planner")));
 
   dyn_rec_server_->setCallback(boost::bind(&HectorExplorationPlanner::dynRecParamCallback, this, _1, _2));
 
@@ -135,11 +138,15 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   // create obstacle tranform
   //buildobstacle_trans_array_(p_use_inflated_obs_);
 
+  goal_pose_pub_.publish(original_goal);
+
   geometry_msgs::PoseStamped adjusted_goal;
   if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
       ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
       return false;
   }
+
+  observation_pose_pub_.publish(adjusted_goal);
 
   // plan to given goal
   goals.push_back(adjusted_goal);
@@ -357,8 +364,11 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
-      unsigned int obstacle_trans_val = obstacle_trans_array_[costmap_->getIndex(x,y)];
-      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) ){
+      unsigned int point = costmap_->getIndex(x,y);
+
+      unsigned int obstacle_trans_val = obstacle_trans_array_[point];
+
+      if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION)){
         int diff_x = (int)mxs - x;
         int diff_y = (int)mys - y;
 
@@ -1036,7 +1046,9 @@ bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStam
     //}
   }
 
-  return true;
+  return (frontiers.size() > 0);
+
+  //@TODO: Review and possibly remove unused code below
 
   // value of the next blob
   int nextBlobValue = 1;

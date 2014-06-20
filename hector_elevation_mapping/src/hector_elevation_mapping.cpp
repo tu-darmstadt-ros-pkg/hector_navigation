@@ -79,15 +79,15 @@ void ElevationMapping::onInit()
     sub_sysMessage = nHandle.subscribe(sys_msg_topic, 10, &ElevationMapping::sysMessageCallback, this);
     sub_grid_map_info = nHandle.subscribe(grid_map_topic + "_metadata",1,&ElevationMapping::updateParamsCallback,this);
 
-    pub_local_map = nHandle.advertise<hector_elevation_msgs::ElevationGrid>(local_elevation_map_topic, 1, true);
-    pub_local_map_meta = nHandle.advertise<hector_elevation_msgs::ElevationMapMetaData>(local_elevation_map_topic + "_metadata", 1, true);
-    pub_global_map = nHandle.advertise<hector_elevation_msgs::ElevationGrid>(global_elevation_map_topic, 1, true);
-    pub_global_map_meta = nHandle.advertise<hector_elevation_msgs::ElevationMapMetaData>(global_elevation_map_topic + "_metadata", 1, true);
+    pub_local_map = nPrivateHandle.advertise<hector_elevation_msgs::ElevationGrid>(local_elevation_map_topic, 1, true);
+    pub_local_map_meta = nPrivateHandle.advertise<hector_elevation_msgs::ElevationMapMetaData>(local_elevation_map_topic + "_metadata", 1, true);
+    pub_global_map = nPrivateHandle.advertise<hector_elevation_msgs::ElevationGrid>(global_elevation_map_topic, 1, true);
+    pub_global_map_meta = nPrivateHandle.advertise<hector_elevation_msgs::ElevationMapMetaData>(global_elevation_map_topic + "_metadata", 1, true);
 
     pub_local_map_meta.publish(local_elevation_map.info);
     pub_global_map_meta.publish(global_elevation_map.info);
 
-    pub_height_update = nHandle.advertise<geometry_msgs::PoseWithCovarianceStamped>(pose_update_topic, 1, true);
+    pub_height_update = nPrivateHandle.advertise<geometry_msgs::PoseWithCovarianceStamped>(pose_update_topic, 1, true);
 
     if(publish_poseupdate)
         timer = nHandle.createTimer(ros::Duration(poseupdate_pub_period), &ElevationMapping::timerCallback,this);

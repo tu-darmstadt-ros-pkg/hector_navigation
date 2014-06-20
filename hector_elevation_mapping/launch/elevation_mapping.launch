@@ -1,5 +1,11 @@
 <launch>
-  <node pkg="nodelet" type="nodelet" name="ElevationMapping" args="load hector_elevation_mapping/ElevationMapping openni_nodelet_manager" output="screen">
+  <node pkg="nodelet" type="nodelet" name="elevation_mapping" args="load hector_elevation_mapping/ElevationMapping openni/openni_nodelet_manager" output="screen">
+    <remap from="openni/syscommand" to="syscommand" />
+    <remap from="openni/scanmatcher_map_metadata" to="scanmatcher_map_metadata" />
+    <remap from="elevation_mapping/elevation_map_local" to="elevation_map_local" />
+    <remap from="elevation_mapping/elevation_map_local_metadata" to="elevation_map_local_metadata" />
+    <remap from="elevation_mapping/elevation_map_global" to="elevation_map_global" />
+    <remap from="elevation_mapping/elevation_map_global_metadata" to="elevation_map_global_metadata" />
     <param name="elevation_resolution" value="0.01" />
     <param name="elevation_zero_level" value="16384" />
     <param name="min_observable_elevation" value="-1.0" />
@@ -10,7 +16,7 @@
     <param name="local_map_frame_id" value="base_stabilized" />
     <param name="local_elevation_map_topic" value="elevation_map_local" />
     <param name="gloabl_elevation_map_topic" value="elevation_map_global" />
-    <param name="point_cloud_topic" value="openni/depth/points"/>
+    <param name="point_cloud_topic" value="depth/points"/>
     <param name="grid_map_topic" value="scanmatcher_map"/>
     <param name="sys_msg_topic" value="syscommand" />
     <param name="publish_poseupdate" value="false" />
