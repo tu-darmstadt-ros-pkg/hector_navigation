@@ -356,6 +356,8 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
   unsigned int closest_sqr_dist = UINT_MAX;
 
+  bool no_information = true;
+
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
@@ -364,6 +366,9 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
       unsigned int obstacle_trans_val = obstacle_trans_array_[point];
 
       if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION)){
+
+        no_information = false;
+
         int diff_x = (int)mxs - x;
         int diff_y = (int)mys - y;
 
@@ -385,6 +390,13 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         }
       }
     }
+  }
+
+  if (no_information){
+    new_observation_pose.pose = observation_pose.pose;
+    new_observation_pose.pose.position.z = 0.0;
+    ROS_INFO("Observation pose unchanged as no information available around goal area");
+    return true;
   }
 
   //std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
@@ -1373,6 +1385,8 @@ bool HectorExplorationPlanner::isFree(int point){
 
   if(isValid(point)){
     // if a point is not inscribed_inflated_obstacle, leathal_obstacle or no_information, its free
+
+
     if(p_use_inflated_obs_){
       if(occupancy_grid_array_[point] < costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         return true;
