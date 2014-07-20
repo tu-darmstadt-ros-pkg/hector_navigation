@@ -1217,7 +1217,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
           double dx = lastPose.pose.position.x - pose.pose.position.x;
           double dy = lastPose.pose.position.y - pose.pose.position.y;
 
-          bool point_in_free_space = isFree(m_point);
+          bool point_in_free_space = isFreeFrontiers(m_point);
 
           // extract points with 0.5m distance (if free)
           if(point_in_free_space){
@@ -1335,7 +1335,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
  * of its neighbours need to be unknown
  */
 bool HectorExplorationPlanner::isFrontier(int point){
-  if(isFree(point)){
+  if(isFreeFrontiers(point)){
 
     int adjacentPoints[8];
     getAdjacentPoints(point,adjacentPoints);
@@ -1399,6 +1399,25 @@ bool HectorExplorationPlanner::isFree(int point){
 
     if(p_plan_in_unknown_){
       if(occupancy_grid_array_[point] == costmap_2d::NO_INFORMATION){
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool HectorExplorationPlanner::isFreeFrontiers(int point){
+
+  if(isValid(point)){
+    // if a point is not inscribed_inflated_obstacle, leathal_obstacle or no_information, its free
+
+
+    if(p_use_inflated_obs_){
+      if(occupancy_grid_array_[point] < costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
+        return true;
+      }
+    } else {
+      if(occupancy_grid_array_[point] <= costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         return true;
       }
     }

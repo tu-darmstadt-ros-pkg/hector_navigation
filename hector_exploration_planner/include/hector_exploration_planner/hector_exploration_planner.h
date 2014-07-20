@@ -111,6 +111,7 @@ private:
   void clearFrontiers();
   bool isValid(int point);
   bool isFree(int point);
+  bool isFreeFrontiers(int point);
   bool isFrontier(int point);
   float angleDifference(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal);
   float getDistanceWeight(const geometry_msgs::PoseStamped &point1, const geometry_msgs::PoseStamped &point2);
