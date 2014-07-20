@@ -163,6 +163,7 @@ private:
   double p_dist_for_goal_reached_;
   double p_same_frontier_dist_;
   double p_obstacle_cutoff_dist_;
+  double p_cos_of_allowed_observation_pose_angle_;
 
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 

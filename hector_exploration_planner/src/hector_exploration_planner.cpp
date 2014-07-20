@@ -114,6 +114,9 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
   p_min_frontier_size_ = config.min_frontier_size;
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
   p_obstacle_cutoff_dist_ = config.obstacle_cutoff_distance;
+
+  double angle_rad = config.observation_pose_allowed_angle * (M_PI / 180.0);
+  p_cos_of_allowed_observation_pose_angle_ = cos(angle_rad);
 }
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
@@ -369,8 +372,8 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
         no_information = false;
 
-        int diff_x = (int)mxs - x;
-        int diff_y = (int)mys - y;
+        int diff_x = x - (int)mxs;
+        int diff_y = y - (int)mys;
 
         unsigned int sqr_dist = diff_x*diff_x + diff_y*diff_y;
 
@@ -381,7 +384,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
           Eigen::Vector2f curr_dir_vec(static_cast<float>(diff_x), static_cast<float>(diff_y));
           curr_dir_vec.normalize();
 
-          if (curr_dir_vec.dot(obs_pose_dir_vec) > 0){
+          if (curr_dir_vec.dot(obs_pose_dir_vec) <  p_cos_of_allowed_observation_pose_angle_){
 
             closest_x = (unsigned int)x;
             closest_y = (unsigned int)y;
