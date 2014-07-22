@@ -81,6 +81,7 @@ public:
 
   bool doAlternativeExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &oldplan);
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers, std::vector<geometry_msgs::PoseStamped> &noFrontiers);
+  bool findFrontiersCloseToPath(std::vector<geometry_msgs::PoseStamped> &frontiers);
   bool findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers);
   bool findInnerFrontier(std::vector<geometry_msgs::PoseStamped> &innerFrontier);
   
@@ -100,7 +101,7 @@ private:
   void setupMapData();
   void deleteMapData();
   bool buildobstacle_trans_array_(bool use_inflated_obstacles);
-  bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty);
+  bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty, bool use_cell_danger = true);
   bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
   bool recoveryMakePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
   unsigned int cellDanger(int point);
@@ -164,10 +165,12 @@ private:
   double p_same_frontier_dist_;
   double p_obstacle_cutoff_dist_;
   double p_cos_of_allowed_observation_pose_angle_;
+  double p_close_to_path_target_distance_;
 
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 
   boost::shared_ptr<ExplorationTransformVis> vis_;
+  boost::shared_ptr<ExplorationTransformVis> close_path_vis_;
   boost::shared_ptr<ExplorationTransformVis> inner_vis_;
   boost::shared_ptr<ExplorationTransformVis> obstacle_vis_;
 
