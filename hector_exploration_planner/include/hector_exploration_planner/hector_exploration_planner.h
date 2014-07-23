@@ -156,6 +156,7 @@ private:
 
   // Parameters
   bool p_plan_in_unknown_;
+  bool p_explore_close_to_path_;
   bool p_use_inflated_obs_;
   int p_goal_angle_penalty_;
   int p_min_obstacle_dist_;

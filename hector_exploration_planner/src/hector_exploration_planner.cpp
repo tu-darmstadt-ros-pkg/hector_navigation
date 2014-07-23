@@ -107,6 +107,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
 {
   p_plan_in_unknown_ = config.plan_in_unknown;
+  p_explore_close_to_path_ = config.explore_close_to_path;
   p_use_inflated_obs_ = config.use_inflated_obstacles;
   p_goal_angle_penalty_ = config.goal_angle_penalty;
   p_alpha_ = config.security_constant;
@@ -194,11 +195,10 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_);
 
-  bool use_close_exploration = true;
 
   bool frontiers_found = false;
 
-  if (use_close_exploration){
+  if (p_explore_close_to_path_){
 
     frontiers_found = findFrontiersCloseToPath(goals);
 
