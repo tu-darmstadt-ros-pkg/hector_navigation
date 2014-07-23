@@ -1076,9 +1076,6 @@ bool HectorExplorationPlanner::findFrontiersCloseToPath(std::vector<geometry_msg
 
       if (size > 1){
 
-        // Allow collision at start in case vehicle is (very) close to wall
-        bool collision_allowed = true;
-
         for(int i = static_cast<int>(size-2); i >= 0; --i){
           const geometry_msgs::PoseStamped& pose = traj_vector[i];
           unsigned int x,y;
@@ -1088,19 +1085,9 @@ bool HectorExplorationPlanner::findFrontiersCloseToPath(std::vector<geometry_msg
           double dx = lastPose.pose.position.x - pose.pose.position.x;
           double dy = lastPose.pose.position.y - pose.pose.position.y;
 
-          bool point_in_free_space = isFreeFrontiers(m_point);
-
-          // extract points with 0.5m distance (if free)
-          if(point_in_free_space){
-            if((dx*dx) + (dy*dy) > (0.25*0.25)){
-              goals.push_back(pose);
-              lastPose = pose;
-              collision_allowed = false;
-            }
-          }
-
-          if (!point_in_free_space && !collision_allowed){
-            break;
+          if((dx*dx) + (dy*dy) > (0.25*0.25)){
+            goals.push_back(pose);
+            lastPose = pose;
           }
         }
 
