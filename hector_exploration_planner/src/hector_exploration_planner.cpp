@@ -31,6 +31,7 @@
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
+#include <std_msgs/Header.h>
 #include <Eigen/Geometry>
 
 #include <hector_exploration_planner/ExplorationPlannerConfig.h>
@@ -84,6 +85,8 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 
   observation_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("observation_pose", 1, true);
   goal_pose_pub_ = private_nh_.advertise<geometry_msgs::PoseStamped>("goal_pose", 1, true);
+  
+  inner_exploration_pub_ = nh.advertise<std_msgs::Header>("/hector_move_base/starting_inner_exploration", 1);
 
   dyn_rec_server_.reset(new dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig>(ros::NodeHandle("~/hector_exploration_planner")));
 
@@ -294,6 +297,11 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
         return true;
       }
     }
+  } else {
+    // last mode was frontier_explore
+    std_msgs::Header header;
+    header.stamp = ros::Time::now();
+    inner_exploration_pub_.publish(header);
   }
 
   // search for frontiers
