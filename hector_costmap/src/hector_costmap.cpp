@@ -86,7 +86,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 
     sliced_cloud.reset(new pcl::PointCloud<pcl::PointXYZ>);
 
-    if(use_grid_map)
+    if(use_elevation_map)
         sub_elevation_map = nHandle.subscribe(elevation_map_topic,10,&CostMapCalculation::callbackElevationMap,this);
 
     if(use_grid_map)
