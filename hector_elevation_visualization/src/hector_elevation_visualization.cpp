@@ -1,4 +1,4 @@
-#include "hector_elevation_visualization.h"
+#include <hector_elevation_visualization/hector_elevation_visualization.h>
 
 
 // compute linear index for given map coords
