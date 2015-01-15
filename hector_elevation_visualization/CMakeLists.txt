@@ -5,6 +5,7 @@ project(hector_elevation_visualization)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  cmake_modules
   dynamic_reconfigure
   hector_elevation_msgs
   hector_map_tools
@@ -17,6 +18,8 @@ generate_dynamic_reconfigure_options(cfg/ElevationVisualization.cfg)
 ## System dependencies are found with CMake's conventions
 # find_package(Boost REQUIRED COMPONENTS system)
 find_package(Eigen REQUIRED)
+include_directories(${EIGEN_INCLUDE_DIRS})
+add_definitions(${EIGEN_DEFINITIONS})
 
 ## Uncomment this if the package has a setup.py. This macro ensures
 ## modules and global scripts declared therein get installed
