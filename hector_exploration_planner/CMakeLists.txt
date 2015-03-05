@@ -95,7 +95,7 @@ generate_dynamic_reconfigure_options(
 ## DEPENDS: system dependencies of this project that dependent projects also need
 catkin_package(
   INCLUDE_DIRS include
-  LIBRARIES hector_exploration_base_global_planner_plugin
+  LIBRARIES hector_exploration_base_global_planner_plugin ${PROJECT_NAME}
   CATKIN_DEPENDS costmap_2d dynamic_reconfigure geometry_msgs hector_nav_msgs nav_core nav_msgs pluginlib rosconsole roscpp rospy
 #  DEPENDS system_lib
 )
