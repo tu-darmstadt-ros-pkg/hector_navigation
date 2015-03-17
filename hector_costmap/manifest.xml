@@ -14,8 +14,6 @@
   <depend package="cv_bridge"/>
   <depend package="hector_map_tools"/>
   <depend package="dynamic_reconfigure" />
-
-  <rosdep name="libopencv-dev"/>
 </package>
 
 

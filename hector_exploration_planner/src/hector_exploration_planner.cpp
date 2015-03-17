@@ -96,6 +96,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   this->previous_goal_ = -1;
 
   vis_.reset(new ExplorationTransformVis("exploration_transform"));
+  close_path_vis_.reset(new ExplorationTransformVis("close_path_exploration_transform"));
   inner_vis_.reset(new ExplorationTransformVis("inner_exploration_transform"));
   obstacle_vis_.reset(new ExplorationTransformVis("obstacle_transform"));
 }
@@ -103,6 +104,7 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
 {
   p_plan_in_unknown_ = config.plan_in_unknown;
+  p_explore_close_to_path_ = config.explore_close_to_path;
   p_use_inflated_obs_ = config.use_inflated_obstacles;
   p_goal_angle_penalty_ = config.goal_angle_penalty;
   p_alpha_ = config.security_constant;
@@ -111,6 +113,10 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
   p_min_frontier_size_ = config.min_frontier_size;
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
   p_obstacle_cutoff_dist_ = config.obstacle_cutoff_distance;
+
+  double angle_rad = config.observation_pose_allowed_angle * (M_PI / 180.0);
+  p_cos_of_allowed_observation_pose_angle_ = cos(angle_rad);
+  p_close_to_path_target_distance_ = config.close_to_path_target_distance;
 }
 
 bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &original_goal, std::vector<geometry_msgs::PoseStamped> &plan){
@@ -194,8 +200,24 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_, other_plan);
 
+
+  bool frontiers_found = false;
+
+  if (p_explore_close_to_path_){
+
+    frontiers_found = findFrontiersCloseToPath(goals);
+
+    if (!frontiers_found){
+      ROS_WARN("Close Exploration desired, but no frontiers found. Falling back to normal exploration!");
+      frontiers_found = findFrontiers(goals);
+    }
+
+  }else{
+    frontiers_found = findFrontiers(goals);
+  }
+
   // search for frontiers
-  if(findFrontiers(goals)){
+  if(frontiers_found){
 
     last_mode_ = FRONTIER_EXPLORE;
     ROS_INFO("[hector_exploration_planner] exploration: found %u frontiers!", (unsigned int)goals.size());
@@ -361,6 +383,8 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
 
   unsigned int closest_sqr_dist = UINT_MAX;
 
+  bool no_information = true;
+
   for (int x = min_x; x < max_x; ++x){
     for (int y = min_y; y < max_y; ++y){
 
@@ -369,8 +393,11 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
       unsigned int obstacle_trans_val = obstacle_trans_array_[point];
 
       if ( (obstacle_trans_val != UINT_MAX) && (obstacle_trans_val != 0) && (occupancy_grid_array_[point] != costmap_2d::NO_INFORMATION)){
-        int diff_x = (int)mxs - x;
-        int diff_y = (int)mys - y;
+
+        no_information = false;
+
+        int diff_x = x - (int)mxs;
+        int diff_y = y - (int)mys;
 
         unsigned int sqr_dist = diff_x*diff_x + diff_y*diff_y;
 
@@ -381,7 +408,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
           Eigen::Vector2f curr_dir_vec(static_cast<float>(diff_x), static_cast<float>(diff_y));
           curr_dir_vec.normalize();
 
-          if (curr_dir_vec.dot(obs_pose_dir_vec) > 0){
+          if (curr_dir_vec.dot(obs_pose_dir_vec) <  p_cos_of_allowed_observation_pose_angle_){
 
             closest_x = (unsigned int)x;
             closest_y = (unsigned int)y;
@@ -390,6 +417,13 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
         }
       }
     }
+  }
+
+  if (no_information){
+    new_observation_pose.pose = observation_pose.pose;
+    new_observation_pose.pose.position.z = 0.0;
+    ROS_INFO("Observation pose unchanged as no information available around goal area");
+    return true;
   }
 
   //std::cout << "start: " << mxs << " , " << mys << " min: " << min_x << " , " << min_y << " max: " <<  max_x << " , " << max_y << "\n";
@@ -723,7 +757,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
 void HectorExplorationPlanner::setupMapData()
 {
-#ifdef LAYERED_COSTMAP_H_
+#ifdef COSTMAP_2D_LAYERED_COSTMAP_H_
   costmap_ = costmap_ros_->getCostmap();
 #else
   if (costmap_) delete costmap_;
@@ -758,7 +792,7 @@ void HectorExplorationPlanner::deleteMapData()
 }
 
 
-bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, bool useAnglePenalty){
+bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, bool useAnglePenalty, bool use_cell_danger){
 
   ROS_DEBUG("[hector_exploration_planner] buildexploration_trans_array_");
 
@@ -815,34 +849,69 @@ bool HectorExplorationPlanner::buildexploration_trans_array_(const geometry_msgs
   }
 
   // exploration transform algorithm
-  while(myqueue.size()){
-    int point = myqueue.front();
-    myqueue.pop();
+  if (use_cell_danger){
+    while(myqueue.size()){
+      int point = myqueue.front();
+      myqueue.pop();
 
-    unsigned int minimum = exploration_trans_array_[point];
+      unsigned int minimum = exploration_trans_array_[point];
 
-    int straightPoints[4];
-    getStraightPoints(point,straightPoints);
-    int diagonalPoints[4];
-    getDiagonalPoints(point,diagonalPoints);
+      int straightPoints[4];
+      getStraightPoints(point,straightPoints);
+      int diagonalPoints[4];
+      getDiagonalPoints(point,diagonalPoints);
 
-    // calculate the minimum exploration value of all adjacent cells
-    for (int i = 0; i < 4; ++i) {
-      if (isFree(straightPoints[i])) {
-        unsigned int neighbor_cost = minimum + STRAIGHT_COST + cellDanger(straightPoints[i]);
+      // calculate the minimum exploration value of all adjacent cells
+      for (int i = 0; i < 4; ++i) {
+        if (isFree(straightPoints[i])) {
+          unsigned int neighbor_cost = minimum + STRAIGHT_COST + cellDanger(straightPoints[i]);
 
-        if (exploration_trans_array_[straightPoints[i]] > neighbor_cost) {
-          exploration_trans_array_[straightPoints[i]] = neighbor_cost;
-          myqueue.push(straightPoints[i]);
+          if (exploration_trans_array_[straightPoints[i]] > neighbor_cost) {
+            exploration_trans_array_[straightPoints[i]] = neighbor_cost;
+            myqueue.push(straightPoints[i]);
+          }
+        }
+
+        if (isFree(diagonalPoints[i])) {
+          unsigned int neighbor_cost = minimum + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
+
+          if (exploration_trans_array_[diagonalPoints[i]] > neighbor_cost) {
+            exploration_trans_array_[diagonalPoints[i]] = neighbor_cost;
+            myqueue.push(diagonalPoints[i]);
+          }
         }
       }
+    }
+  }else{
+    while(myqueue.size()){
+      int point = myqueue.front();
+      myqueue.pop();
 
-      if (isFree(diagonalPoints[i])) {
-        unsigned int neighbor_cost = minimum + DIAGONAL_COST + cellDanger(diagonalPoints[i]);
+      unsigned int minimum = exploration_trans_array_[point];
 
-        if (exploration_trans_array_[diagonalPoints[i]] > neighbor_cost) {
-          exploration_trans_array_[diagonalPoints[i]] = neighbor_cost;
-          myqueue.push(diagonalPoints[i]);
+      int straightPoints[4];
+      getStraightPoints(point,straightPoints);
+      int diagonalPoints[4];
+      getDiagonalPoints(point,diagonalPoints);
+
+      // calculate the minimum exploration value of all adjacent cells
+      for (int i = 0; i < 4; ++i) {
+        if (isFree(straightPoints[i])) {
+          unsigned int neighbor_cost = minimum + STRAIGHT_COST;
+
+          if (exploration_trans_array_[straightPoints[i]] > neighbor_cost) {
+            exploration_trans_array_[straightPoints[i]] = neighbor_cost;
+            myqueue.push(straightPoints[i]);
+          }
+        }
+
+        if (isFree(diagonalPoints[i])) {
+          unsigned int neighbor_cost = minimum + DIAGONAL_COST;
+
+          if (exploration_trans_array_[diagonalPoints[i]] > neighbor_cost) {
+            exploration_trans_array_[diagonalPoints[i]] = neighbor_cost;
+            myqueue.push(diagonalPoints[i]);
+          }
         }
       }
     }
@@ -992,8 +1061,6 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
     maxDelta = 0;
   }
 
-
-
   ROS_DEBUG("[hector_exploration_planner] END: getTrajectory. Plansize %u", (unsigned int)plan.size());
   return !plan.empty();
 }
@@ -1001,6 +1068,151 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
 bool HectorExplorationPlanner::findFrontiers(std::vector<geometry_msgs::PoseStamped> &frontiers){
   std::vector<geometry_msgs::PoseStamped> empty_vec;
   return findFrontiers(frontiers,empty_vec);
+}
+
+/*
+ * searches the occupancy grid for frontier cells and merges them into one target point per frontier.
+ * The returned frontiers are in world coordinates.
+ */
+bool HectorExplorationPlanner::findFrontiersCloseToPath(std::vector<geometry_msgs::PoseStamped> &frontiers){
+
+  clearFrontiers();
+  frontiers.clear();
+
+  // get the trajectory as seeds for the exploration transform
+  hector_nav_msgs::GetRobotTrajectory srv_path;
+  if (path_service_client_.call(srv_path)){
+
+    std::vector<geometry_msgs::PoseStamped>& traj_vector (srv_path.response.trajectory.poses);
+
+    // We push poses of the travelled trajectory to the goals vector for building the exploration transform
+    std::vector<geometry_msgs::PoseStamped> goals;
+
+    size_t size = traj_vector.size();
+    ROS_INFO("[hector_exploration_planner] Size of trajectory vector for close exploration %u", (unsigned int)size);
+
+    if(size > 0){
+      geometry_msgs::PoseStamped lastPose = traj_vector[size-1];
+      goals.push_back(lastPose);
+
+      if (size > 1){
+
+        for(int i = static_cast<int>(size-2); i >= 0; --i){
+          const geometry_msgs::PoseStamped& pose = traj_vector[i];
+          unsigned int x,y;
+          costmap_->worldToMap(pose.pose.position.x,pose.pose.position.y,x,y);
+          unsigned int m_point = costmap_->getIndex(x,y);
+
+          double dx = lastPose.pose.position.x - pose.pose.position.x;
+          double dy = lastPose.pose.position.y - pose.pose.position.y;
+
+          if((dx*dx) + (dy*dy) > (0.25*0.25)){
+            goals.push_back(pose);
+            lastPose = pose;
+          }
+        }
+
+        ROS_INFO("[hector_exploration_planner] pushed %u goals (trajectory) for close to robot frontier search", (unsigned int)goals.size());
+
+        // make exploration transform
+        tf::Stamped<tf::Pose> robotPose;
+        if(!costmap_ros_->getRobotPose(robotPose)){
+          ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
+        }
+        geometry_msgs::PoseStamped robotPoseMsg;
+        tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
+
+        if (!buildexploration_trans_array_(robotPoseMsg, goals, false, false)){
+          ROS_WARN("[hector_exploration_planner]: Creating exploration transform array in find inner frontier failed, aborting.");
+          return false;
+        }
+
+        close_path_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
+
+        unsigned int explore_threshold = static_cast<unsigned int> (static_cast<double>(STRAIGHT_COST) * (1.0/costmap_->getResolution()) * p_close_to_path_target_distance_);
+
+        //std::vector<geometry_msgs::PoseStamped> close_frontiers;
+
+        for(unsigned int i = 0; i < num_map_cells_; ++i){
+
+          unsigned int current_val = exploration_trans_array_[i];
+
+          if(current_val < UINT_MAX){
+
+            if (current_val >= explore_threshold){ //&& current_val <= explore_threshold+ DIAGONAL_COST){
+              geometry_msgs::PoseStamped finalFrontier;
+              double wx,wy;
+              unsigned int mx,my;
+              costmap_->indexToCells(i, mx, my);
+              costmap_->mapToWorld(mx,my,wx,wy);
+              std::string global_frame = costmap_ros_->getGlobalFrameID();
+              finalFrontier.header.frame_id = global_frame;
+              finalFrontier.pose.position.x = wx;
+              finalFrontier.pose.position.y = wy;
+              finalFrontier.pose.position.z = 0.0;
+
+              double yaw = getYawToUnknown(costmap_->getIndex(mx,my));
+
+              //if(frontier_is_valid){
+
+              finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+              frontiers.push_back(finalFrontier);
+
+            }
+
+          }
+        }
+
+        return frontiers.size() > 0;
+
+
+
+
+
+      }
+    }
+  }
+
+
+
+
+
+  // list of all frontiers in the occupancy grid
+  std::vector<int> allFrontiers;
+
+  // check for all cells in the occupancy grid whether or not they are frontier cells
+  for(unsigned int i = 0; i < num_map_cells_; ++i){
+    if(isFrontier(i)){
+      allFrontiers.push_back(i);
+    }
+  }
+
+  for(unsigned int i = 0; i < allFrontiers.size(); ++i){
+    if(!isFrontierReached(allFrontiers[i])){
+      geometry_msgs::PoseStamped finalFrontier;
+      double wx,wy;
+      unsigned int mx,my;
+      costmap_->indexToCells(allFrontiers[i], mx, my);
+      costmap_->mapToWorld(mx,my,wx,wy);
+      std::string global_frame = costmap_ros_->getGlobalFrameID();
+      finalFrontier.header.frame_id = global_frame;
+      finalFrontier.pose.position.x = wx;
+      finalFrontier.pose.position.y = wy;
+      finalFrontier.pose.position.z = 0.0;
+
+      double yaw = getYawToUnknown(costmap_->getIndex(mx,my));
+
+      //if(frontier_is_valid){
+
+      finalFrontier.pose.orientation = tf::createQuaternionMsgFromYaw(yaw);
+
+      frontiers.push_back(finalFrontier);
+    }
+    //}
+  }
+
+  return (frontiers.size() > 0);
 }
 
 /*
@@ -1226,7 +1438,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
           double dx = lastPose.pose.position.x - pose.pose.position.x;
           double dy = lastPose.pose.position.y - pose.pose.position.y;
 
-          bool point_in_free_space = isFree(m_point);
+          bool point_in_free_space = isFreeFrontiers(m_point);
 
           // extract points with 0.5m distance (if free)
           if(point_in_free_space){
@@ -1344,7 +1556,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
  * of its neighbours need to be unknown
  */
 bool HectorExplorationPlanner::isFrontier(int point){
-  if(isFree(point)){
+  if(isFreeFrontiers(point)){
 
     int adjacentPoints[8];
     getAdjacentPoints(point,adjacentPoints);
@@ -1394,6 +1606,8 @@ bool HectorExplorationPlanner::isFree(int point){
 
   if(isValid(point)){
     // if a point is not inscribed_inflated_obstacle, leathal_obstacle or no_information, its free
+
+
     if(p_use_inflated_obs_){
       if(occupancy_grid_array_[point] < costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         return true;
@@ -1406,6 +1620,25 @@ bool HectorExplorationPlanner::isFree(int point){
 
     if(p_plan_in_unknown_){
       if(occupancy_grid_array_[point] == costmap_2d::NO_INFORMATION){
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
+bool HectorExplorationPlanner::isFreeFrontiers(int point){
+
+  if(isValid(point)){
+    // if a point is not inscribed_inflated_obstacle, leathal_obstacle or no_information, its free
+
+
+    if(p_use_inflated_obs_){
+      if(occupancy_grid_array_[point] < costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
+        return true;
+      }
+    } else {
+      if(occupancy_grid_array_[point] <= costmap_2d::INSCRIBED_INFLATED_OBSTACLE){
         return true;
       }
     }
