@@ -100,7 +100,7 @@ private:
    */
   void setupMapData();
   void deleteMapData();
-  bool buildobstacle_trans_array_(bool use_inflated_obstacles);
+  bool buildobstacle_trans_array_(bool use_inflated_obstacles, std::vector<geometry_msgs::PoseStamped>* other_plan = 0);
   bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty, bool use_cell_danger = true);
   bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
   bool recoveryMakePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
