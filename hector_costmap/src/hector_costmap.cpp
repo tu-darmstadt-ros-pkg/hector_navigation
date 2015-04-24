@@ -10,10 +10,12 @@
 #define GRID_MAP        1
 #define CLOUD_MAP       2
 #define ELEVATION_MAP   4
+#define DYNAMIC_MAP     8
 
 #define USE_GRID_MAP_ONLY                         GRID_MAP
 #define USE_ELEVATION_MAP_ONLY                    ELEVATION_MAP
 #define USE_GRID_AND_ELEVATION_MAP                (GRID_MAP | ELEVATION_MAP)
+#define USE_GRID_AND_ELEVATION_AND_DYNAMIC_MAP    (GRID_MAP | ELEVATION_MAP | DYNAMIC_MAP)
 #define USE_GRID_AND_CLOUD_MAP                    (GRID_MAP | CLOUD_MAP)
 #define USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP  (GRID_MAP | CLOUD_MAP | ELEVATION_MAP)
 
@@ -48,9 +50,11 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     pnHandle.param("cost_map_topic", cost_map_topic, std::string("cost_map"));
     pnHandle.param("elevation_map_topic", elevation_map_topic, std::string("elevation_map_local"));
     pnHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
+    pnHandle.param("dynamic_grid_map_topic", dynamic_grid_map_topic, std::string("dynamic_update_map"));
 
     pnHandle.param("use_elevation_map", use_elevation_map, true);
     pnHandle.param("use_grid_map", use_grid_map, true);
+    pnHandle.param("use_dynamic_grid_map", use_dynamic_grid_map, false);
     pnHandle.param("use_cloud_map", use_cloud_map, false);
     pnHandle.param("allow_elevation_map_to_clear_occupied_cells", allow_elevation_map_to_clear_occupied_cells, true);
     pnHandle.param("max_clear_size", max_clear_size, 2);
@@ -91,6 +95,9 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
 
     if(use_grid_map)
         sub_grid_map = nHandle.subscribe(grid_map_topic,10,&CostMapCalculation::callbackGridMap,this);
+
+    if(use_dynamic_grid_map)
+        sub_dynamic_grid_map = nHandle.subscribe(dynamic_grid_map_topic,10,&CostMapCalculation::callbackDynamicGridMap,this);
 
     if(use_cloud_map)
         sub_point_cloud = nHandle.subscribe(point_cloud_topic,10,&CostMapCalculation::callbackPointCloud,this);
@@ -672,83 +679,155 @@ bool CostMapCalculation::calculateCostMap_old(char map_level)
     return true;
 }
 
+void CostMapCalculation::callbackDynamicGridMap(const nav_msgs::OccupancyGridConstPtr& grid_map_msg)
+{
+  dynamic_grid_map_msg_ = grid_map_msg;
+}
+
 bool CostMapCalculation::calculateCostMap(char map_level)
 {
-    if (!map_level)
-    {
-      ROS_WARN("Invalid map selection was given to cost map calculation!");
-      return false;
-    }
+  if (!map_level)
+  {
+    ROS_WARN("Invalid map selection was given to cost map calculation!");
+    return false;
+  }
 
-    if (map_level & GRID_MAP) ROS_DEBUG("HectorCM: compute costmap based on grid map");
-    if (map_level & ELEVATION_MAP) ROS_DEBUG("HectorCM: compute costmap based on elevation map");
-    if (map_level & CLOUD_MAP) ROS_DEBUG("HectorCM: compute costmap based on cloud map");
+  if (map_level & GRID_MAP) ROS_DEBUG("HectorCM: compute costmap based on grid map");
+  if (map_level & ELEVATION_MAP) ROS_DEBUG("HectorCM: compute costmap based on elevation map");
+  if (map_level & CLOUD_MAP) ROS_DEBUG("HectorCM: compute costmap based on cloud map");
 
+  bool use_dynamic = use_dynamic_grid_map && dynamic_grid_map_msg_.get();
+
+  if (!use_dynamic){
     // loop through each element
     for (int v = min_index(1); v < max_index(1); ++v)
     {
-        for (int u = min_index(0); u < max_index(0); ++u)
+      for (int u = min_index(0); u < max_index(0); ++u)
+      {
+        unsigned int index = MAP_IDX(cost_map.info.width, u, v);
+        int checksum_grid_map = 0;
+
+        cost_map.data[index] = UNKNOWN_CELL;
+
+        // grid map
+        if (map_level & GRID_MAP)
         {
-            unsigned int index = MAP_IDX(cost_map.info.width, u, v);
-            int checksum_grid_map = 0;
-
-            cost_map.data[index] = UNKNOWN_CELL;
-
-            // grid map
-            if (map_level & GRID_MAP)
+          switch (grid_map_.data[index])
+          {
+          case OCCUPIED_CELL:
+            if (map_level & ELEVATION_MAP && allow_elevation_map_to_clear_occupied_cells)
             {
-                switch (grid_map_.data[index])
-                {
-                    case OCCUPIED_CELL:
-                        if (map_level & ELEVATION_MAP && allow_elevation_map_to_clear_occupied_cells)
-                        {
-                            checksum_grid_map += grid_map_.at<int8_t>(v-1, u  );
-                            checksum_grid_map += grid_map_.at<int8_t>(v+1, u  );
-                            checksum_grid_map += grid_map_.at<int8_t>(v,   u-1);
-                            checksum_grid_map += grid_map_.at<int8_t>(v,   u+1);
-                            checksum_grid_map += grid_map_.at<int8_t>(v+1, u+1);
-                            checksum_grid_map += grid_map_.at<int8_t>(v-1, u-1);
-                            checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
-                            checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
-                        }
-
-                        cost_map.data[index] = OCCUPIED_CELL;
-                        break;
-                    case FREE_CELL: cost_map.data[index] = FREE_CELL; break;
-                }
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u  );
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u  );
+              checksum_grid_map += grid_map_.at<int8_t>(v,   u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v,   u+1);
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u+1);
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
             }
 
-            // point cloud
-            if (map_level & CLOUD_MAP)
-            {
-                if (cost_map.data[index] != OCCUPIED_CELL)
-                {
-                    switch (cloud_cost_map.data[index])
-                    {
-                        case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
-                        case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
-                    }
-                }
-            }
-
-            // elevation map
-            if (map_level & ELEVATION_MAP)
-            {
-                if (cost_map.data[index] != OCCUPIED_CELL || (allow_elevation_map_to_clear_occupied_cells && checksum_grid_map <= max_clear_size*OCCUPIED_CELL))
-                {
-                    switch (elevation_cost_map.data[index])
-                    {
-                        case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
-                        case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
-                    }
-                }
-            }
+            cost_map.data[index] = OCCUPIED_CELL;
+            break;
+          case FREE_CELL: cost_map.data[index] = FREE_CELL; break;
+          }
         }
+
+        // point cloud
+        if (map_level & CLOUD_MAP)
+        {
+          if (cost_map.data[index] != OCCUPIED_CELL)
+          {
+            switch (cloud_cost_map.data[index])
+            {
+            case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
+            case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
+            }
+          }
+        }
+
+        // elevation map
+        if (map_level & ELEVATION_MAP)
+        {
+          if (cost_map.data[index] != OCCUPIED_CELL || (allow_elevation_map_to_clear_occupied_cells && checksum_grid_map <= max_clear_size*OCCUPIED_CELL))
+          {
+            switch (elevation_cost_map.data[index])
+            {
+            case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
+            case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
+            }
+          }
+        }
+      }
     }
 
     ROS_DEBUG("HectorCM: computed a new costmap");
 
     return true;
+  }else{
+
+    // Below only executed when we have a dynamic map
+
+    for (int v = min_index(1); v < max_index(1); ++v)
+    {
+      for (int u = min_index(0); u < max_index(0); ++u)
+      {
+        const std::vector<int8_t>& dynamic_data = dynamic_grid_map_msg_.get()->data;
+
+        unsigned int index = MAP_IDX(cost_map.info.width, u, v);
+        int checksum_grid_map = 0;
+
+        cost_map.data[index] = UNKNOWN_CELL;
+
+        // grid map
+        if (map_level & GRID_MAP)
+        {
+          switch (grid_map_.data[index])
+          {
+          case OCCUPIED_CELL:
+            if (map_level & ELEVATION_MAP && allow_elevation_map_to_clear_occupied_cells)
+            {
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u  );
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u  );
+              checksum_grid_map += grid_map_.at<int8_t>(v,   u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v,   u+1);
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u+1);
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
+              checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
+            }
+
+            cost_map.data[index] = OCCUPIED_CELL;
+            break;
+          case FREE_CELL: cost_map.data[index] = FREE_CELL; break;
+          }
+        }
+
+        //Cloud not supported here
+
+        if (dynamic_data[index] == FREE_CELL && checksum_grid_map <= 4*OCCUPIED_CELL && elevation_cost_map.data[index] == OCCUPIED_CELL){
+          cost_map.data[index] = FREE_CELL;
+        }else{
+
+          // elevation map
+          if (map_level & ELEVATION_MAP)
+          {
+            if (cost_map.data[index] != OCCUPIED_CELL || (allow_elevation_map_to_clear_occupied_cells && checksum_grid_map <= max_clear_size*OCCUPIED_CELL))
+            {
+              switch (elevation_cost_map.data[index])
+              {
+              case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
+              case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
+              }
+            }
+          }
+        }
+      }
+    }
+
+    ROS_DEBUG("HectorCM: computed a new costmap");
+    return true;
+  }
 }
 
 bool CostMapCalculation::computeWindowIndices(ros::Time time,double update_radius)
