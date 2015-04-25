@@ -859,7 +859,8 @@ bool CostMapCalculation::calculateCostMap(char map_level)
 
         bool no_grid_map_unknown = true;
 
-        if (grid_map_.at<int8_t>(v-1, u  ) == UNKNOWN_CELL ||
+        if (grid_map_.at<int8_t>(v  , u  ) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v-1, u  ) == UNKNOWN_CELL ||
             grid_map_.at<int8_t>(v+1, u  ) == UNKNOWN_CELL ||
             grid_map_.at<int8_t>(v,   u-1) == UNKNOWN_CELL ||
             grid_map_.at<int8_t>(v,   u+1) == UNKNOWN_CELL ||
@@ -873,7 +874,8 @@ bool CostMapCalculation::calculateCostMap(char map_level)
 
         bool all_dynamic_free = false;
 
-        if (dynamic_grid_map_.at<int8_t>(v-1, u  ) == FREE_CELL &&
+        if (dynamic_grid_map_.at<int8_t>(v  , u  ) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v-1, u  ) == FREE_CELL &&
             dynamic_grid_map_.at<int8_t>(v+1, u  ) == FREE_CELL &&
             dynamic_grid_map_.at<int8_t>(v,   u-1) == FREE_CELL &&
             dynamic_grid_map_.at<int8_t>(v,   u+1) == FREE_CELL &&
