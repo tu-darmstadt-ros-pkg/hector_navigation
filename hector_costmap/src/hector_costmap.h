@@ -104,7 +104,7 @@ private:
     double grid_res_z;
     int elevation_zero_level;
     double max_delta_elevation;
-    bool use_elevation_map, use_grid_map, use_dynamic_grid_map, use_cloud_map, received_grid_map, received_elevation_map, received_point_cloud, allow_elevation_map_to_clear_occupied_cells;
+    bool use_elevation_map, use_grid_map, use_dynamic_grid_map, use_cloud_map, received_grid_map, received_dynamic_grid_map, received_elevation_map, received_point_cloud, allow_elevation_map_to_clear_occupied_cells;
     int max_clear_size;
     double costmap_pub_freq;
     double slize_min_height, slize_max_height;
@@ -115,7 +115,7 @@ private:
 
     nav_msgs::OccupancyGrid cost_map, elevation_cost_map, cloud_cost_map;
 
-    cv::Mat grid_map_, elevation_map_, elevation_map_filtered,elevation_cost_map_;
+    cv::Mat grid_map_, dynamic_grid_map_, elevation_map_, elevation_map_filtered,elevation_cost_map_;
 
     std::string cost_map_topic, elevation_map_topic, grid_map_topic, point_cloud_topic, sys_msg_topic, dynamic_grid_map_topic;
     std::string map_frame_id,local_transform_frame_id;

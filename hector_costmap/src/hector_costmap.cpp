@@ -681,7 +681,55 @@ bool CostMapCalculation::calculateCostMap_old(char map_level)
 
 void CostMapCalculation::callbackDynamicGridMap(const nav_msgs::OccupancyGridConstPtr& grid_map_msg)
 {
+
+  ROS_DEBUG("HectorCM: received new grid map");
+
+  // check header
+  if((int)(1000*grid_map_msg->info.resolution) != (int)(1000*cost_map.info.resolution) &&  // Magic number 1000 -> min grid size should not be less than 1mm
+          grid_map_msg->info.height != cost_map.info.height &&
+          grid_map_msg->info.width != cost_map.info.width)
+  {
+      ROS_ERROR("HectorCM: dynamic grid map resolution and or size incorrect!");
+      return;
+  }
+
   dynamic_grid_map_msg_ = grid_map_msg;
+
+  // copy grid_map_msg to local variable
+  dynamic_grid_map_ = cv::Mat(dynamic_grid_map_msg_->info.height, dynamic_grid_map_msg_->info.width, CV_8S, const_cast<int8_t*>(&dynamic_grid_map_msg_->data[0]), (size_t)dynamic_grid_map_msg_->info.width);
+
+  // set grid map received flag
+  received_dynamic_grid_map = true;
+
+  /*
+  // compute region of intereset
+  if(!computeWindowIndices(grid_map_msg->header.stamp, update_radius_world))
+      return;
+
+  // calculate cost map
+  if(received_elevation_map)
+  {
+      if(received_point_cloud)
+      {
+          calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP);
+      }
+      else
+      {
+          calculateCostMap(USE_GRID_AND_ELEVATION_MAP);
+      }
+  }
+  else
+  {
+      if(received_point_cloud)
+      {
+          calculateCostMap(USE_GRID_AND_CLOUD_MAP);
+      }
+      else
+      {
+          calculateCostMap(USE_GRID_MAP_ONLY);
+      }
+  }
+  */
 }
 
 bool CostMapCalculation::calculateCostMap(char map_level)
@@ -768,11 +816,15 @@ bool CostMapCalculation::calculateCostMap(char map_level)
 
     // Below only executed when we have a dynamic map
 
+    const std::vector<int8_t>& dynamic_data = dynamic_grid_map_msg_.get()->data;
+
+    //int dynamic_check_size = 1;
+
     for (int v = min_index(1); v < max_index(1); ++v)
     {
       for (int u = min_index(0); u < max_index(0); ++u)
       {
-        const std::vector<int8_t>& dynamic_data = dynamic_grid_map_msg_.get()->data;
+
 
         unsigned int index = MAP_IDX(cost_map.info.width, u, v);
         int checksum_grid_map = 0;
@@ -785,6 +837,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
           switch (grid_map_.data[index])
           {
           case OCCUPIED_CELL:
+            /*
             if (map_level & ELEVATION_MAP && allow_elevation_map_to_clear_occupied_cells)
             {
               checksum_grid_map += grid_map_.at<int8_t>(v-1, u  );
@@ -796,6 +849,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
               checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
               checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
             }
+            */
 
             cost_map.data[index] = OCCUPIED_CELL;
             break;
@@ -803,8 +857,50 @@ bool CostMapCalculation::calculateCostMap(char map_level)
           }
         }
 
+        bool no_grid_map_unknown = true;
+
+        if (grid_map_.at<int8_t>(v-1, u  ) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v+1, u  ) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v,   u-1) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v,   u+1) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v+1, u+1) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v-1, u-1) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v+1, u-1) == UNKNOWN_CELL ||
+            grid_map_.at<int8_t>(v-1, u+1) == UNKNOWN_CELL)
+        {
+          no_grid_map_unknown = false;
+        }
+
+        bool all_dynamic_free = false;
+
+        if (dynamic_grid_map_.at<int8_t>(v-1, u  ) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v+1, u  ) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v,   u-1) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v,   u+1) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v+1, u+1) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v-1, u-1) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v+1, u-1) == FREE_CELL &&
+            dynamic_grid_map_.at<int8_t>(v-1, u+1) == FREE_CELL)
+        {
+          all_dynamic_free = true;
+        }
+
+
+        if (all_dynamic_free && no_grid_map_unknown){
+          cost_map.data[index] = FREE_CELL;
+        }
+
+        /*
+        for (int x = -dynamic_check_size; x < dynamic_check_size; ++x){
+          for (int y = -dynamic_check_size; y < dynamic_check_size; ++y){
+
+          }
+        }
+        */
+
         //Cloud not supported here
 
+        /*
         if (dynamic_data[index] == FREE_CELL && checksum_grid_map <= 4*OCCUPIED_CELL && elevation_cost_map.data[index] == OCCUPIED_CELL){
           cost_map.data[index] = FREE_CELL;
         }else{
@@ -822,6 +918,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
             }
           }
         }
+        */
       }
     }
 
