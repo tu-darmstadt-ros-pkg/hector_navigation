@@ -13,6 +13,9 @@
     <param name="use_grid_map" value="true" />
     <param name="grid_map_topic" value="scanmatcher_map" />
 
+    <param name="use_dynamic_grid_map" value="false" />
+    <param name="dynamic_grid_map_topic" value="dynamic_update_map" />
+
     <param name="use_elevation_map" value="true" />
     <param name="elevation_map_topic" value="elevation_map_local" />
 
