@@ -837,7 +837,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
           switch (grid_map_.data[index])
           {
           case OCCUPIED_CELL:
-            /*
+
             if (map_level & ELEVATION_MAP && allow_elevation_map_to_clear_occupied_cells)
             {
               checksum_grid_map += grid_map_.at<int8_t>(v-1, u  );
@@ -849,13 +849,27 @@ bool CostMapCalculation::calculateCostMap(char map_level)
               checksum_grid_map += grid_map_.at<int8_t>(v+1, u-1);
               checksum_grid_map += grid_map_.at<int8_t>(v-1, u+1);
             }
-            */
 
             cost_map.data[index] = OCCUPIED_CELL;
             break;
           case FREE_CELL: cost_map.data[index] = FREE_CELL; break;
           }
         }
+
+        // elevation map
+        if (map_level & ELEVATION_MAP)
+        {
+          if (cost_map.data[index] != OCCUPIED_CELL || (allow_elevation_map_to_clear_occupied_cells && checksum_grid_map <= max_clear_size*OCCUPIED_CELL))
+          {
+            switch (elevation_cost_map.data[index])
+            {
+            case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
+            case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
+            }
+          }
+        }
+
+        // Here modification starts for using dynamic map
 
         bool no_grid_map_unknown = true;
 
