@@ -67,7 +67,14 @@ public:
     * @param start The start point
     * @param plan The plan to explore into unknown space
     */
-  bool doExploration(const geometry_msgs::PoseStamped &start,std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped>* other_plan = 0);
+  bool doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped>* robot2_plan = 0);
+
+  /**
+    * Given two start points, finds closest frontiers between known and unknown space and generates a plans to go there
+    * @param start The start point
+    * @param plan The plan to explore into unknown space
+    */
+  bool doMultiExploration(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &start2, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &plan2);
 
   /**
     * This can be used if there are no frontiers to unknown space left in the map. The robot will retrieve it's path travelled so far via a service
@@ -100,7 +107,7 @@ private:
    */
   void setupMapData();
   void deleteMapData();
-  bool buildobstacle_trans_array_(bool use_inflated_obstacles, std::vector<geometry_msgs::PoseStamped>* other_plan = 0);
+  bool buildobstacle_trans_array_(bool use_inflated_obstacles, std::vector<geometry_msgs::PoseStamped>* robot2_plan = 0);
   bool buildexploration_trans_array_(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals,bool useAnglePenalty, bool use_cell_danger = true);
   bool getTrajectory(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> goals, std::vector<geometry_msgs::PoseStamped> &plan);
   bool recoveryMakePlan(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &goal,std::vector<geometry_msgs::PoseStamped> &plan);
@@ -131,6 +138,10 @@ private:
   int downright(int point);
   int down(int point);
   int downleft(int point);
+
+  void drawCircle(int centerPoint, int radius, int fillValue, bool onlyFrontiers, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray);
+  void drawSquare(int size, int centerPoint, int fillValue, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray);
+  bool pointIsOnMap(int point);
 
   ros::Publisher observation_pose_pub_;
   ros::Publisher goal_pose_pub_;
@@ -167,6 +178,11 @@ private:
   double p_obstacle_cutoff_dist_;
   double p_cos_of_allowed_observation_pose_angle_;
   double p_close_to_path_target_distance_;
+  unsigned int p_influence_value_of_robot2_path_;
+  unsigned int p_influence_distance_of_robot2_path_;
+  unsigned int p_influence_value_of_robot2_frontier_;
+  unsigned int p_influence_distance_of_robot2_frontier_;
+  unsigned int p_robot2_size_;
 
   boost::shared_ptr<dynamic_reconfigure::Server<hector_exploration_planner::ExplorationPlannerConfig> > dyn_rec_server_;
 
