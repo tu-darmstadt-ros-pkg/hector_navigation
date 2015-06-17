@@ -165,6 +165,7 @@ private:
   double p_dist_for_goal_reached_;
   double p_same_frontier_dist_;
   double p_obstacle_cutoff_dist_;
+  bool p_use_observation_pose_calculation_;
   double p_cos_of_allowed_observation_pose_angle_;
   double p_close_to_path_target_distance_;
 

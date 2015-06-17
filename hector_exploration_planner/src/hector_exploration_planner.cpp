@@ -117,6 +117,7 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
   p_obstacle_cutoff_dist_ = config.obstacle_cutoff_distance;
 
+  p_use_observation_pose_calculation_ = config.use_observation_pose_calculation;
   double angle_rad = config.observation_pose_allowed_angle * (M_PI / 180.0);
   p_cos_of_allowed_observation_pose_angle_ = cos(angle_rad);
   p_close_to_path_target_distance_ = config.close_to_path_target_distance;
@@ -150,9 +151,16 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   goal_pose_pub_.publish(original_goal);
 
   geometry_msgs::PoseStamped adjusted_goal;
-  if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
+
+  if (p_use_observation_pose_calculation_){
+    ROS_DEBUG("Using observation pose calc.");
+    if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
       ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
       return false;
+    }
+  }else{
+    ROS_DEBUG("Not using observation pose calc.");
+    adjusted_goal = original_goal;
   }
 
   observation_pose_pub_.publish(adjusted_goal);
