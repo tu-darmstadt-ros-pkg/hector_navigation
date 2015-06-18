@@ -153,13 +153,13 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   geometry_msgs::PoseStamped adjusted_goal;
 
   if (p_use_observation_pose_calculation_){
-    ROS_DEBUG("Using observation pose calc.");
+    ROS_INFO("Using observation pose calc.");
     if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
       ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
       return false;
     }
   }else{
-    ROS_DEBUG("Not using observation pose calc.");
+    ROS_INFO("Not using observation pose calc.");
     adjusted_goal = original_goal;
   }
 
