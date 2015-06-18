@@ -348,6 +348,12 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   //this->setupMapData();
   //resetMaps();
 
+  if (!p_use_observation_pose_calculation_){
+    ROS_WARN("getObservationPose was called although use_observation_pose_calculation param is set to false. Returning original pose!");
+    new_observation_pose = observation_pose;
+    return true;
+  }
+
   unsigned int mxs,mys;
   costmap_->worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
 
