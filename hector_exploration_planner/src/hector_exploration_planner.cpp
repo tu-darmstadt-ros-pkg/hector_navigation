@@ -766,6 +766,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
 void HectorExplorationPlanner::setupMapData()
 {
+
 #ifdef COSTMAP_2D_LAYERED_COSTMAP_H_
   costmap_ = costmap_ros_->getCostmap();
 #else
@@ -773,6 +774,23 @@ void HectorExplorationPlanner::setupMapData()
   costmap_ = new costmap_2d::Costmap2D;
   costmap_ros_->getCostmapCopy(*costmap_);
 #endif
+
+  //Below code can be used to guarantee start pose is cleared. Somewhat risky.
+  //@TODO: Make available through dynamic reconfigure
+  /*
+  std::vector<geometry_msgs::Point> points;
+  costmap_ros_->getOrientedFootprint(points);
+
+  bool filled = costmap_->setConvexPolygonCost(points, costmap_2d::FREE_SPACE);
+
+  //std::vector<geometry_msgs::Point> points = costmap_ros_->getRobotFootprint();
+  for (size_t i = 0; i < points.size(); ++i)
+    std::cout << points[i];
+  if (filled)
+    ROS_INFO("Set costmap to free");
+  else
+    ROS_INFO("Failed to set costmap free");
+  */
 
   if ((this->map_width_ != costmap_->getSizeInCellsX()) || (this->map_height_ != costmap_->getSizeInCellsY())){
     map_width_ = costmap_->getSizeInCellsX();
@@ -787,7 +805,6 @@ void HectorExplorationPlanner::setupMapData()
     clearFrontiers();
     resetMaps();
   }
-
 
   occupancy_grid_array_ = costmap_->getCharMap();
 }
