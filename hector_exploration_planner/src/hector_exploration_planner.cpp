@@ -160,6 +160,7 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
     }
   }else{
     ROS_INFO("Not using observation pose calc.");
+    this->buildobstacle_trans_array_(true);
     adjusted_goal = original_goal;
   }
 
@@ -351,6 +352,7 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   if (!p_use_observation_pose_calculation_){
     ROS_WARN("getObservationPose was called although use_observation_pose_calculation param is set to false. Returning original pose!");
     new_observation_pose = observation_pose;
+    this->buildobstacle_trans_array_(true);
     return true;
   }
 
