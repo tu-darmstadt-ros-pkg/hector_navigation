@@ -99,6 +99,8 @@ void HectorExplorationPlanner::initialize(std::string name, costmap_2d::Costmap2
   close_path_vis_.reset(new ExplorationTransformVis("close_path_exploration_transform"));
   inner_vis_.reset(new ExplorationTransformVis("inner_exploration_transform"));
   obstacle_vis_.reset(new ExplorationTransformVis("obstacle_transform"));
+
+  robot_collision_cost_ = 0;
 }
 
 void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::ExplorationPlannerConfig &config, uint32_t level)
@@ -195,7 +197,6 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 
   std::vector<geometry_msgs::PoseStamped> goals;
 
-  // ANSATZ FUER MOEGLICHE VERWENDUNG DES ZWEITEN PFADES
   // create obstacle tranform
   buildobstacle_trans_array_(p_use_inflated_obs_, robot2_plan);
 
@@ -249,69 +250,128 @@ bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &s
 }
 
 bool HectorExplorationPlanner::doMultiExploration(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &start2, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &plan2) {
-  ROS_INFO("[hector_exploration_planner] multi-exploration: starting multi-exploration");
+    ROS_INFO("[hector_exploration_planner] multi-exploration: starting multi-exploration");
 
-  // create initial plans with starting position of robot
-  std::vector<geometry_msgs::PoseStamped> init_plan;
-  init_plan.clear();
-  init_plan.push_back(start);
-  std::vector<geometry_msgs::PoseStamped> init_plan2;
-  init_plan2.clear();
-  init_plan2.push_back(start2);
+    // create initial plans with starting positions of robots
+    std::vector<geometry_msgs::PoseStamped> init_plan;
+    init_plan.clear();
+    init_plan.push_back(start);
+    std::vector<geometry_msgs::PoseStamped> init_plan2;
+    init_plan2.clear();
+    init_plan2.push_back(start2);
 
-  size_t plan_size = 0,
-         plan2_size = 0;
-  int switchValue = 0;
+    robot_collision_cost_ = 0;
+    if (poseDistance(start, start2) <= (int) ceil(p_robot2_size_/2)) {
+        ROS_WARN("[hector_exploration_planner] multi-exploration: robots too close to each other!");
+        robot_collision_cost_ = 1;
+    }
 
-  if (!doExploration(start, plan, &init_plan2)) {
-      switchValue = 1;
-  } else {
-      plan_size = plan.size();
-  }
+    size_t plan_size = 0,
+            plan2_size = 0;
+    int switchValue = 0;
 
-  if (!doExploration(start2, plan2, &init_plan)) {
-      switchValue = 2;
-  } else {
-      plan2_size = plan2.size();
-  }
+    // independent exploration to determine shortest path to best frontier
+    if (!doExploration(start, plan, &init_plan2)) {
+        // exploration of robot 1 failed
+        switchValue = 1;
+    } else {
+        plan_size = plan.size();
+    }
+    if (!doExploration(start2, plan2, &init_plan)) {
+        if (switchValue != 1) {
+            // exploration of robot 2 failed
+            switchValue = 2;
+        } else {
+            // exploration of both robots failed
+            switchValue = 3;
+        }
+    } else {
+        plan2_size = plan2.size();
+    }
 
-  switch (switchValue) {
-    case 0:
-      // both robots can reach frontiers
-      if (plan_size < plan2_size) {
-          // replan plan 2
-          ROS_INFO("[hector_exploration_planner] multi-exploration: replaning plan 2");
-          return doExploration(start2, plan2, &plan);
-      } else {
-          // replan plan 1
-          ROS_INFO("[hector_exploration_planner] multi-exploration: replaning plan 1");
-          return doExploration(start, plan, &plan2);
-      }
-    case 1:
-      // robot 1 trapped
-      ROS_INFO("[hector_exploration_planner] multi-exploration: robot 1 trapped - following robot 2");
-      if (makePlan(start, start2, plan)) {
-         for (unsigned int i=0; i<p_robot2_size_/2; i++) {
-              plan.pop_back();
-         }
-         return true;
-      } else {
-         return false;
-      }
-    case 2:
-      // robot 2 trapped
-      ROS_INFO("[hector_exploration_planner] multi-exploration: robot 2 trapped - following robot 1");
-      if (makePlan(start2, start, plan2)) {
-          for (unsigned int i=0; i<p_robot2_size_/2; i++) {
-               plan2.pop_back();
-          }
-          return true;
-      } else {
-        return false;
-      }
+
+    switch (switchValue) {
+    case 0: // both robots can reach frontiers
+        if (plan_size < plan2_size) {
+            if (robot_collision_cost_ == 0) {
+                // replan plan 2
+                ROS_INFO("[hector_exploration_planner] multi-exploration: replaning plan 2");
+                if (doExploration(start2, plan2, &plan)) {
+                    return true;
+                } else {
+                    // last frontier is taken by robot 1 - approach as close as possible
+                    if (makePlan(start2, plan.back(), plan2)) {
+                        // delete end of path for collision avoidance
+                        for (int i = plan_size-1; i >= 0; i--) {
+                            while (poseDistance(plan2.back(), plan.at(i)) <= (int) ceil(p_robot2_size_/2)) {
+                                plan2.pop_back();
+                            }
+                        }
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            } else {
+                // delete plan 2
+                ROS_INFO("[hector_exploration_planner] multi-exploration: collision avoidance - stopping robot 2");
+                plan2.clear();
+                return true;
+            }
+        } else {
+            if (robot_collision_cost_ == 0) {
+                // replan plan 1
+                ROS_INFO("[hector_exploration_planner] multi-exploration: replaning plan 1");
+                if (doExploration(start, plan, &plan2)) {
+                    return true;
+                } else {
+                    // last frontier is taken by robot 1 - approach as close as possible
+                    if (makePlan(start, plan2.back(), plan)) {
+                        // delete end of path for collision avoidance
+                        for (int i = plan2_size-1; i >= 0; i--) {
+                            while (poseDistance(plan.back(), plan2.at(i)) <= (int) ceil(p_robot2_size_/2)) {
+                                plan.pop_back();
+                            }
+                        }
+                        return true;
+                    } else {
+                        return false;
+                    }
+                }
+            } else {
+                // delete plan 1
+                ROS_INFO("[hector_exploration_planner] multi-exploration: collision avoidance - stopping robot 1");
+                plan.clear();
+                return true;
+            }
+        }
+    case 1: // robot 1 trapped
+        ROS_INFO("[hector_exploration_planner] multi-exploration: robot 1 trapped - following robot 2");
+        if (makePlan(start, start2, plan)) {
+            // delete end of path for collision avoidance
+            while (poseDistance(plan.back(), start2) <= (int) ceil(p_robot2_size_/2)) {
+                plan.pop_back();
+            }
+            return true;
+        } else {
+            return false;
+        }
+    case 2: // robot 2 trapped
+        ROS_INFO("[hector_exploration_planner] multi-exploration: robot 2 trapped - following robot 1");
+        if (makePlan(start2, start, plan2)) {
+            // delete end of path for collision avoidance
+            while (poseDistance(plan2.back(), start) <= (int) ceil(p_robot2_size_/2)) {
+                plan2.pop_back();
+            }
+            return true;
+        } else {
+            return false;
+        }
+    case 3: // robots out of map or no frontiers available
     default:
-      return false;
-  }
+        ROS_WARN("[hector_exploration_planner] multi-exploration: exploration failed!");
+        return false;
+    }
 }
 
 bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
@@ -1001,21 +1061,15 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
       p_robot2_size_
       */
 
-      if (robot2_plan_size > 0) {
 
-          /*
-          for (unsigned int i = 0; i<num_map_cells_; i++) {
-              obstacle_trans_array_[i] = 100;
-          }
-          */
+      if (robot2_plan_size > 0) {
           // collision avoidance with pose of other robot
-          if(!costmap_->worldToMap(robot2_plan->at(0).pose.position.x,robot2_plan->at(0).pose.position.y,mx,my)){
+          if(!costmap_->worldToMap(robot2_plan->front().pose.position.x,robot2_plan->front().pose.position.y,mx,my)){
             ROS_WARN("[hector_exploration_planner] The start coordinates are outside the costmap!");
             return false;
           }
           int currentPoint = costmap_->getIndex(mx,my);
-          //drawSquare(p_robot2_size_, currentPoint, 0, myqueue, obstacle_trans_array_);
-          drawCircle(currentPoint, p_robot2_size_/2, 0, false, myqueue, obstacle_trans_array_);
+          drawCircle(currentPoint, (int) ceil(p_robot2_size_/2), robot_collision_cost_, false, myqueue, obstacle_trans_array_);
       }
 
       /*
@@ -1026,19 +1080,26 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
       if (robot2_plan_size > 2) {
           // influence of other robot's planned path
 
-          //unsigned int gradient = p_influence_value_of_robot2_path_/p_influence_distance_of_robot2_path_;
-          unsigned int distance = (robot2_plan_size < p_influence_distance_of_robot2_path_)?robot2_plan_size:p_influence_distance_of_robot2_path_;
+          // A: whole plan
           //unsigned int distance = robot2_plan_size;
+
+          // B: fixed length
+          unsigned int distance = (robot2_plan_size < p_influence_distance_of_robot2_path_)?robot2_plan_size:p_influence_distance_of_robot2_path_;
+
+          // B1: additional gradient
+          //unsigned int gradient = p_influence_value_of_robot2_path_/p_influence_distance_of_robot2_path_;
+
           for (unsigned int i=1; i<distance-1; ++i) {
               if(!costmap_->worldToMap(robot2_plan->at(i).pose.position.x,robot2_plan->at(i).pose.position.y,mx,my)){
                 ROS_WARN("[hector_exploration_planner] The start coordinates are outside the costmap!");
                 return false;
               }
               int currentPoint = costmap_->getIndex(mx,my);
-              //myqueue.push(currentPoint);
-              //obstacle_trans_array_[currentPoint] = p_influence_value_of_robot2_path_ - (gradient * i);
-              //obstacle_trans_array_[currentPoint] = p_influence_value_of_robot2_path_;
-              drawCircle(currentPoint, p_robot2_size_/2, p_influence_value_of_robot2_path_, false, myqueue, obstacle_trans_array_);
+              // B: circle
+              drawCircle(currentPoint, (int) ceil(p_robot2_size_/2), p_influence_value_of_robot2_path_, false, myqueue, obstacle_trans_array_);
+
+              // B1: circle with gradient
+              //drawCircle(currentPoint, (int) ceil(p_robot2_size_/2), p_influence_value_of_robot2_path_ - (gradient * i), false, myqueue, obstacle_trans_array_);
           }
       }
 
@@ -1049,16 +1110,17 @@ bool HectorExplorationPlanner::buildobstacle_trans_array_(bool use_inflated_obst
 
       if (robot2_plan_size > 1) {
           // influence of other robot's selected frontier/goal
-          if(!costmap_->worldToMap(robot2_plan->at(robot2_plan_size-1).pose.position.x,robot2_plan->at(robot2_plan_size-1).pose.position.y,mx,my)){
+          if(!costmap_->worldToMap(robot2_plan->back().pose.position.x,robot2_plan->back().pose.position.y,mx,my)){
             ROS_WARN("[hector_exploration_planner] The start coordinates are outside the costmap!");
             return false;
           }
-          //TODO: inflate in order to select frontier in different direction
 
           int currentPoint = costmap_->getIndex(mx,my);
-          //myqueue.push(currentPoint);
-          //obstacle_trans_array_[currentPoint] = 100;
-          drawCircle(currentPoint, p_influence_distance_of_robot2_frontier_, p_influence_value_of_robot2_frontier_, true, myqueue, obstacle_trans_array_);
+          // A: circle
+          //drawCircle(currentPoint, p_influence_distance_of_robot2_frontier_, p_influence_value_of_robot2_frontier_, true, myqueue, obstacle_trans_array_);
+
+          // B: dynamic distance
+          fillAdjacentFrontiers(currentPoint, p_influence_value_of_robot2_frontier_, myqueue, obstacle_trans_array_);
       }
   }
 
@@ -2075,44 +2137,23 @@ inline int HectorExplorationPlanner::downleft(int point){
 
 //    }
 
-void HectorExplorationPlanner::drawCircle(int centerPoint, int radius, int fillValue, bool onlyFrontiers, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray) {
-    /*
-     * draw circle outline
-     *
+void HectorExplorationPlanner::fillAdjacentFrontiers(int point, int fillValue, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray) {
+    if (!mapArray[point] == fillValue) {
+        changesQueue.push(point);
+        mapArray[point] = fillValue;
 
-    int x = radius;
-    int y = 0;
-    int radiusError = 1-x;
-    int pointArray[8];
+        int adjacentPoints [8];
+        getAdjacentPoints(point, adjacentPoints);
 
-    while(x >= y)
-    {
-        pointArray[0] = centerPoint + x - y * map_width_;
-        pointArray[1] = centerPoint + y - x * map_width_;
-        pointArray[2] = centerPoint - x - y * map_width_;
-        pointArray[3] = centerPoint - y - x * map_width_;
-        pointArray[4] = centerPoint - x + y * map_width_;
-        pointArray[5] = centerPoint - y + x * map_width_;
-        pointArray[6] = centerPoint + x + y * map_width_;
-        pointArray[7] = centerPoint + y + x * map_width_;
         for (unsigned int i=0; i<8; i++) {
-            if (pointIsOnMap(pointArray[i])) {
-                changesQueue.push(pointArray[i]);
-                mapArray[pointArray[i]] = fillValue;
+            if (isFrontier(adjacentPoints[i])) {
+                fillAdjacentFrontiers(adjacentPoints[i], fillValue, changesQueue, mapArray);
             }
         }
-        y++;
-        if (radiusError<0)
-        {
-            radiusError += 2 * y + 1;
-        }
-        else
-        {
-            x--;
-            radiusError += 2 * (y - x) + 1;
-        }
     }
-    */
+}
+
+void HectorExplorationPlanner::drawCircle(int centerPoint, int radius, int fillValue, bool onlyFrontiers, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray) {
     int radius2 = radius * radius;
     int area = radius2 << 2;
     int rr = radius << 1;
@@ -2125,7 +2166,7 @@ void HectorExplorationPlanner::drawCircle(int centerPoint, int radius, int fillV
         if (tx * tx + ty * ty <= radius2) {
             int point = centerPoint + tx - ty * map_width_;
             if (pointIsOnMap(point)) {
-                // overwrite only if new value is lower (higher obstacle)
+                // overwrite only if new value is lower (higher cost obstacle)
                 if (mapArray[point] > (unsigned int) fillValue) {
                     if (onlyFrontiers) {
                         if (isFrontier(point)) {
@@ -2142,30 +2183,26 @@ void HectorExplorationPlanner::drawCircle(int centerPoint, int radius, int fillV
     }
 }
 
-void HectorExplorationPlanner::drawSquare(int size, int centerPoint, int fillValue, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray) {
-
-    int upperLeftPoint = centerPoint - (size/2) - ((size/2) * map_width_);
-    int referencePointY, referencePointX;
-    // y-coordinates (horizontal rows)
-    for (int r=0; r < size; r++) {
-        referencePointY = upperLeftPoint + (r * map_width_);
-        if (referencePointY >= - (int) map_width_) {
-           // x-coordinates (vertical columns)
-           referencePointX = referencePointY;
-           for (int c=0; c<size; c++) {
-              referencePointX = referencePointY + c;
-              if (pointIsOnMap(referencePointX)) {
-                  changesQueue.push(referencePointX);
-                  mapArray[referencePointX] = fillValue;
-              }
-           }
-        }
-    }
-}
-
 bool HectorExplorationPlanner::pointIsOnMap(int point) {
     if (point >= 0 && point <= (int) num_map_cells_) {
         return true;
     }
     return false;
+}
+
+int HectorExplorationPlanner::poseDistance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2) {
+    unsigned int pose1_x, pose1_y, pose2_x, pose2_y;
+
+    if(!costmap_->worldToMap(pose1.pose.position.x,pose1.pose.position.y,pose1_x,pose1_y)){
+      ROS_WARN("[hector_exploration_planner] Pose of Robot 1 is outside the costmap!");
+      return 0;
+    }
+    if(!costmap_->worldToMap(pose2.pose.position.x,pose2.pose.position.y,pose2_x,pose2_y)){
+      ROS_WARN("[hector_exploration_planner] Pose of Robot 2 is outside the costmap!");
+      return 0;
+    }
+    int delta_x = pose1_x - pose2_x;
+    int delta_y = pose1_y - pose2_y;
+
+    return (int) floor(sqrt(std::pow(delta_x,2) + std::pow(delta_y,2)));
 }

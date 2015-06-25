@@ -20,9 +20,9 @@ gen.add("obstacle_cutoff_distance", double_t, 0, "obstacle_cutoff_distance", 1.0
 gen.add("observation_pose_allowed_angle", double_t, 0, "allowed angle for observation pose adjustment [deg]", 135.0, 0.0, 360.0)
 gen.add("close_to_path_target_distance", double_t, 0, "close to path exploration target distance", 1.2, 0.0, 10.0)
 gen.add("robot2_size", int_t, 0, "size of robot2 diameter", 20, 0, 100)
-gen.add("influence_value_of_robot2_path", int_t, 0, "influence value of robot2 path", 0, 0, 255)
+gen.add("influence_value_of_robot2_path", int_t, 0, "influence value of robot2 path", 100, 0, 255)
 gen.add("influence_distance_of_robot2_path", int_t, 0, "influence distance of robot2 path", 30, 0, 200)
-gen.add("influence_value_of_robot2_frontier", int_t, 0, "influence value of robot2 frontier", 0, 0, 255)
+gen.add("influence_value_of_robot2_frontier", int_t, 0, "influence value of robot2 frontier", 10, 0, 255)
 gen.add("influence_distance_of_robot2_frontier", int_t, 0, "influence distance of robot2 frontier", 30, 0, 200)
 
 

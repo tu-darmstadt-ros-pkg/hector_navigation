@@ -70,9 +70,11 @@ public:
   bool doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped>* robot2_plan = 0);
 
   /**
-    * Given two start points, finds closest frontiers between known and unknown space and generates a plans to go there
-    * @param start The start point
-    * @param plan The plan to explore into unknown space
+    * Given two start points, finds closest frontiers between known and unknown space and generates plans for each robot to go there
+    * @param start The start point of robot 1
+    * @param start2 The start point of robot 2
+    * @param plan The plan to explore into unknown space for robot 1
+    * @param plan2 The plan to explore into unknown space for robot 2
     */
   bool doMultiExploration(const geometry_msgs::PoseStamped &start, const geometry_msgs::PoseStamped &start2, std::vector<geometry_msgs::PoseStamped> &plan, std::vector<geometry_msgs::PoseStamped> &plan2);
 
@@ -139,9 +141,11 @@ private:
   int down(int point);
   int downleft(int point);
 
+  void fillAdjacentFrontiers(int point, int fillValue, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray);
+
   void drawCircle(int centerPoint, int radius, int fillValue, bool onlyFrontiers, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray);
-  void drawSquare(int size, int centerPoint, int fillValue, std::queue<int> &changesQueue, boost::shared_array<unsigned int> &mapArray);
   bool pointIsOnMap(int point);
+  int poseDistance(const geometry_msgs::PoseStamped &pose1, const geometry_msgs::PoseStamped &pose2);
 
   ros::Publisher observation_pose_pub_;
   ros::Publisher goal_pose_pub_;
@@ -164,6 +168,7 @@ private:
   unsigned int map_width_;
   unsigned int map_height_;
   unsigned int num_map_cells_;
+  int robot_collision_cost_;
 
   // Parameters
   bool p_plan_in_unknown_;
