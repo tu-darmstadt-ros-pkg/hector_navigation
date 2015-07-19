@@ -52,7 +52,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     pnHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
     pnHandle.param("dynamic_grid_map_topic", dynamic_grid_map_topic, std::string("dynamic_update_map"));
 
-    pnHandle.param("use_elevation_map", use_elevation_map, true);
+    //pnHandle.param("use_elevation_map", use_elevation_map, true);
     pnHandle.param("use_grid_map", use_grid_map, true);
     pnHandle.param("use_dynamic_grid_map", use_dynamic_grid_map, false);
     pnHandle.param("use_cloud_map", use_cloud_map, false);
@@ -160,6 +160,7 @@ void CostMapCalculation::dynRecParamCallback(hector_costmap::CostMapCalculationC
     slize_min_height = config.slize_min_height;
     slize_max_height = config.slize_max_height;
     update_radius_world = config.update_radius_world;
+    use_elevation_map = config.use_elevation_map;
 }
 
 
@@ -232,6 +233,11 @@ void CostMapCalculation::timerCallback(const ros::TimerEvent& event)
 void CostMapCalculation::callbackElevationMap(const hector_elevation_msgs::ElevationGridConstPtr& elevation_map_msg)
 {
     ROS_DEBUG("HectorCM: received new elevation map");
+
+    if (!use_elevation_map){
+      ROS_DEBUG("Received elevation map, but use elevation map false, returning and not updating.");
+      return;
+    }
 
     // check header
     if((int)(1000*elevation_map_msg->info.resolution_xy) != (int)(1000*cost_map.info.resolution) &&  // Magic number 1000 -> min grid size should not be less than 1mm
@@ -419,8 +425,9 @@ void CostMapCalculation::callbackGridMap(const nav_msgs::OccupancyGridConstPtr& 
     if(!computeWindowIndices(grid_map_msg->header.stamp, update_radius_world))
         return;
 
-    // calculate cost map
-    if(received_elevation_map)
+    if (!use_elevation_map){
+      calculateCostMap(USE_GRID_MAP_ONLY);
+    }else if(received_elevation_map)
     {
         if(received_point_cloud)
         {
