@@ -96,8 +96,8 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     if(use_grid_map)
         sub_grid_map = nHandle.subscribe(grid_map_topic,10,&CostMapCalculation::callbackGridMap,this);
 
-    if(use_dynamic_grid_map)
-        sub_dynamic_grid_map = nHandle.subscribe(dynamic_grid_map_topic,10,&CostMapCalculation::callbackDynamicGridMap,this);
+    //dynamic_grid_map)
+    sub_dynamic_grid_map = nHandle.subscribe(dynamic_grid_map_topic,10,&CostMapCalculation::callbackDynamicGridMap,this);
 
     if(use_cloud_map)
         sub_point_cloud = nHandle.subscribe(point_cloud_topic,10,&CostMapCalculation::callbackPointCloud,this);
@@ -161,6 +161,7 @@ void CostMapCalculation::dynRecParamCallback(hector_costmap::CostMapCalculationC
     slize_max_height = config.slize_max_height;
     update_radius_world = config.update_radius_world;
     use_elevation_map = config.use_elevation_map;
+    use_dynamic_grid_map = config.use_dynamic_grid_map;
 }
 
 
@@ -689,7 +690,7 @@ bool CostMapCalculation::calculateCostMap_old(char map_level)
 void CostMapCalculation::callbackDynamicGridMap(const nav_msgs::OccupancyGridConstPtr& grid_map_msg)
 {
 
-  ROS_DEBUG("HectorCM: received new grid map");
+  ROS_DEBUG("HectorCM: received new grid dynamic map");
 
   // check header
   if((int)(1000*grid_map_msg->info.resolution) != (int)(1000*cost_map.info.resolution) &&  // Magic number 1000 -> min grid size should not be less than 1mm
@@ -707,36 +708,6 @@ void CostMapCalculation::callbackDynamicGridMap(const nav_msgs::OccupancyGridCon
 
   // set grid map received flag
   received_dynamic_grid_map = true;
-
-  /*
-  // compute region of intereset
-  if(!computeWindowIndices(grid_map_msg->header.stamp, update_radius_world))
-      return;
-
-  // calculate cost map
-  if(received_elevation_map)
-  {
-      if(received_point_cloud)
-      {
-          calculateCostMap(USE_GRID_AND_ELEVATION_MAP_AND_CLOUD_MAP);
-      }
-      else
-      {
-          calculateCostMap(USE_GRID_AND_ELEVATION_MAP);
-      }
-  }
-  else
-  {
-      if(received_point_cloud)
-      {
-          calculateCostMap(USE_GRID_AND_CLOUD_MAP);
-      }
-      else
-      {
-          calculateCostMap(USE_GRID_MAP_ONLY);
-      }
-  }
-  */
 }
 
 bool CostMapCalculation::calculateCostMap(char map_level)
@@ -754,6 +725,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
   bool use_dynamic = use_dynamic_grid_map && dynamic_grid_map_msg_.get();
 
   if (!use_dynamic){
+
     // loop through each element
     for (int v = min_index(1); v < max_index(1); ++v)
     {
@@ -823,7 +795,7 @@ bool CostMapCalculation::calculateCostMap(char map_level)
 
     // Below only executed when we have a dynamic map
 
-    const std::vector<int8_t>& dynamic_data = dynamic_grid_map_msg_.get()->data;
+    //const std::vector<int8_t>& dynamic_data = dynamic_grid_map_msg_.get()->data;
 
     //int dynamic_check_size = 1;
 
@@ -917,28 +889,6 @@ bool CostMapCalculation::calculateCostMap(char map_level)
         for (int x = -dynamic_check_size; x < dynamic_check_size; ++x){
           for (int y = -dynamic_check_size; y < dynamic_check_size; ++y){
 
-          }
-        }
-        */
-
-        //Cloud not supported here
-
-        /*
-        if (dynamic_data[index] == FREE_CELL && checksum_grid_map <= 4*OCCUPIED_CELL && elevation_cost_map.data[index] == OCCUPIED_CELL){
-          cost_map.data[index] = FREE_CELL;
-        }else{
-
-          // elevation map
-          if (map_level & ELEVATION_MAP)
-          {
-            if (cost_map.data[index] != OCCUPIED_CELL || (allow_elevation_map_to_clear_occupied_cells && checksum_grid_map <= max_clear_size*OCCUPIED_CELL))
-            {
-              switch (elevation_cost_map.data[index])
-              {
-              case OCCUPIED_CELL: cost_map.data[index] = OCCUPIED_CELL; break;
-              case FREE_CELL:     cost_map.data[index] = FREE_CELL;     break;
-              }
-            }
           }
         }
         */
