@@ -1023,6 +1023,11 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
   std::string global_frame = costmap_ros_->getGlobalFrameID();
   trajPoint.header.frame_id = global_frame;
 
+  if (is_goal_array_[currentPoint]){
+    ROS_INFO("Already at goal point position. No pose vector generated.");
+    return true;
+  }
+
   while(!is_goal_array_[currentPoint]){
     int thisDelta;
     int adjacentPoints[8];
