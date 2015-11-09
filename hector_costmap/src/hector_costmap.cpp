@@ -52,7 +52,7 @@ CostMapCalculation::CostMapCalculation() : nHandle(), pnHandle("~")
     pnHandle.param("grid_map_topic", grid_map_topic, std::string("scanmatcher_map"));
     pnHandle.param("dynamic_grid_map_topic", dynamic_grid_map_topic, std::string("dynamic_update_map"));
 
-    //pnHandle.param("use_elevation_map", use_elevation_map, true);
+    pnHandle.param("use_elevation_map", use_elevation_map, true);
     pnHandle.param("use_grid_map", use_grid_map, true);
     pnHandle.param("use_dynamic_grid_map", use_dynamic_grid_map, false);
     pnHandle.param("use_cloud_map", use_cloud_map, false);
