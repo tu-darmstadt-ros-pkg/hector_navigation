@@ -26,7 +26,7 @@
 // SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
 //=================================================================================================
 
-#include "hector_exploration_planner/hector_exploration_planner.h"
+#include <hector_exploration_planner/hector_exploration_planner.h>
 
 #include <visualization_msgs/Marker.h>
 #include <visualization_msgs/MarkerArray.h>
@@ -117,6 +117,7 @@ void HectorExplorationPlanner::dynRecParamCallback(hector_exploration_planner::E
   p_min_obstacle_dist_ = config.min_obstacle_dist * STRAIGHT_COST;
   p_obstacle_cutoff_dist_ = config.obstacle_cutoff_distance;
 
+  p_use_observation_pose_calculation_ = config.use_observation_pose_calculation;
   double angle_rad = config.observation_pose_allowed_angle * (M_PI / 180.0);
   p_cos_of_allowed_observation_pose_angle_ = cos(angle_rad);
   p_close_to_path_target_distance_ = config.close_to_path_target_distance;
@@ -150,9 +151,17 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   goal_pose_pub_.publish(original_goal);
 
   geometry_msgs::PoseStamped adjusted_goal;
-  if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
+
+  if (p_use_observation_pose_calculation_){
+    ROS_INFO("Using observation pose calc.");
+    if (!this->getObservationPose(original_goal, 0.5, adjusted_goal)){
       ROS_ERROR("getObservationPose returned false, no area around target point available to drive to!");
       return false;
+    }
+  }else{
+    ROS_INFO("Not using observation pose calc.");
+    this->buildobstacle_trans_array_(true);
+    adjusted_goal = original_goal;
   }
 
   observation_pose_pub_.publish(adjusted_goal);
@@ -339,6 +348,13 @@ bool HectorExplorationPlanner::getObservationPose(const geometry_msgs::PoseStamp
   // We call this from inside the planner, so map data setup and reset already happened
   //this->setupMapData();
   //resetMaps();
+
+  if (!p_use_observation_pose_calculation_){
+    ROS_WARN("getObservationPose was called although use_observation_pose_calculation param is set to false. Returning original pose!");
+    new_observation_pose = observation_pose;
+    this->buildobstacle_trans_array_(true);
+    return true;
+  }
 
   unsigned int mxs,mys;
   costmap_->worldToMap(observation_pose.pose.position.x, observation_pose.pose.position.y, mxs, mys);
@@ -752,6 +768,7 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
 void HectorExplorationPlanner::setupMapData()
 {
+
 #ifdef COSTMAP_2D_LAYERED_COSTMAP_H_
   costmap_ = costmap_ros_->getCostmap();
 #else
@@ -759,6 +776,23 @@ void HectorExplorationPlanner::setupMapData()
   costmap_ = new costmap_2d::Costmap2D;
   costmap_ros_->getCostmapCopy(*costmap_);
 #endif
+
+  //Below code can be used to guarantee start pose is cleared. Somewhat risky.
+  //@TODO: Make available through dynamic reconfigure
+  /*
+  std::vector<geometry_msgs::Point> points;
+  costmap_ros_->getOrientedFootprint(points);
+
+  bool filled = costmap_->setConvexPolygonCost(points, costmap_2d::FREE_SPACE);
+
+  //std::vector<geometry_msgs::Point> points = costmap_ros_->getRobotFootprint();
+  for (size_t i = 0; i < points.size(); ++i)
+    std::cout << points[i];
+  if (filled)
+    ROS_INFO("Set costmap to free");
+  else
+    ROS_INFO("Failed to set costmap free");
+  */
 
   if ((this->map_width_ != costmap_->getSizeInCellsX()) || (this->map_height_ != costmap_->getSizeInCellsY())){
     map_width_ = costmap_->getSizeInCellsX();
@@ -773,7 +807,6 @@ void HectorExplorationPlanner::setupMapData()
     clearFrontiers();
     resetMaps();
   }
-
 
   occupancy_grid_array_ = costmap_->getCharMap();
 }
@@ -989,6 +1022,11 @@ bool HectorExplorationPlanner::getTrajectory(const geometry_msgs::PoseStamped &s
   geometry_msgs::PoseStamped trajPoint;
   std::string global_frame = costmap_ros_->getGlobalFrameID();
   trajPoint.header.frame_id = global_frame;
+
+  if (is_goal_array_[currentPoint]){
+    ROS_INFO("Already at goal point position. No pose vector generated.");
+    return true;
+  }
 
   while(!is_goal_array_[currentPoint]){
     int thisDelta;

@@ -27,7 +27,7 @@
 //=================================================================================================
 
 
-#include "ros/ros.h"
+#include <ros/ros.h>
 #include <hector_exploration_planner/hector_exploration_planner.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
