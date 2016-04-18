@@ -103,19 +103,18 @@ include_directories(
 #   src/${PROJECT_NAME}/hector_path_follower.cpp
 # )
 add_library(${PROJECT_NAME} src/hector_path_follower.cpp)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 
 ## Declare a cpp executable
 # add_executable(hector_path_follower_node src/hector_path_follower_node.cpp)
-add_executable(hector_path_follower_node src/hector_path_follower_node.cpp src/hector_path_follower.cpp)
+add_executable(hector_path_follower_node src/hector_path_follower_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
 # add_dependencies(hector_path_follower_node hector_path_follower_generate_messages_cpp)
 
 ## Specify libraries to link a library or executable target against
-target_link_libraries(hector_path_follower_node
-  ${catkin_LIBRARIES}
-)
+target_link_libraries(hector_path_follower_node ${PROJECT_NAME})
 
 #############
 ## Install ##
