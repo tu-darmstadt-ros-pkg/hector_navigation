@@ -184,13 +184,25 @@ bool HectorExplorationPlanner::makePlan(const geometry_msgs::PoseStamped &start,
   costmap_->worldToMap(adjusted_goal.pose.position.x,adjusted_goal.pose.position.y,mx,my);
   previous_goal_ = costmap_->getIndex(mx,my);
 
+  if ((original_goal.pose.orientation.w == 0.0) && (original_goal.pose.orientation.x == 0.0) &&
+  (original_goal.pose.orientation.y == 0.0) && (original_goal.pose.orientation.z == 0.0)){
+      geometry_msgs::PoseStamped second_last_pose;
+      geometry_msgs::PoseStamped last_pose;
+      second_last_pose = plan[plan.size()-2];
+      last_pose = plan[plan.size()-1];
+      last_pose.pose.orientation = second_last_pose.pose.orientation;
+      plan[plan.size()-1] = last_pose;
+
+      
+  }
+
   ROS_INFO("[hector_exploration_planner] planning: plan has been found! plansize: %u ", (unsigned int)plan.size());
   return true;
 }
 
 bool HectorExplorationPlanner::doExploration(const geometry_msgs::PoseStamped &start, std::vector<geometry_msgs::PoseStamped> &plan){
 
-  ROS_INFO("[hector_exploration_planner] exploration: starting exploration");
+
 
   this->setupMapData();
 
