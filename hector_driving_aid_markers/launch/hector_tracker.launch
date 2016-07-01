@@ -1,0 +1,13 @@
+<?xml version="1.0"?>
+
+<launch>
+  
+  <node pkg="hector_driving_aid_markers" type="hector_driving_aid_markers_node" name="hector_driving_aid_markers" output="screen">
+    <param name="left_side_y_outer" value="0.3"/>
+    <param name="left_side_y_inner" value="0.25"/>
+    <param name="right_side_y_outer" value="-0.3"/>
+    <param name="right_side_y_inner" value="-0.25"/>
+    <param name="offset_z" value="-0.05"/>    
+  </node>
+  
+</launch>

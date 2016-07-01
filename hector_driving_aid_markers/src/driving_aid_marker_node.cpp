@@ -33,26 +33,26 @@ public:
     std::vector<geometry_msgs::Point> point_vector;
 
     geometry_msgs::Point tmp;
-    tmp.x = 0.0;
+    tmp.x = -1.5;
     tmp.z = p_offset_z_;
     tmp.y = p_left_side_y_outer_;
     point_vector.push_back(tmp);
     tmp.x = 1.5;
     point_vector.push_back(tmp);
 
-    tmp.x = 0.0;
+    tmp.x = -1.5;
     tmp.y = p_left_side_y_inner_;
     point_vector.push_back(tmp);
     tmp.x = 1.5;
     point_vector.push_back(tmp);
 
-    tmp.x = 0.0;
+    tmp.x = -1.5;
     tmp.y = p_right_side_y_outer_;
     point_vector.push_back(tmp);
     tmp.x = 1.5;
     point_vector.push_back(tmp);
 
-    tmp.x = 0.0;
+    tmp.x = -1.5;
     tmp.y = p_right_side_y_inner_;
     point_vector.push_back(tmp);
     tmp.x = 1.5;
