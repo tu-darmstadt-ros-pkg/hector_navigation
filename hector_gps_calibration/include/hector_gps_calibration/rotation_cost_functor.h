@@ -14,30 +14,120 @@
  * limitations under the License.
  */
 
-#ifndef CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_OCCUPIED_SPACE_COST_FUNCTOR_H_
-#define CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_OCCUPIED_SPACE_COST_FUNCTOR_H_
+#ifndef COST_FUNCTOR_H
+#define COST_FUNCTOR_H
 
 #include "Eigen/Core"
-//#include "cartographer/transform/rigid_transform.h"
-//#include "cartographer/transform/transform.h"
-/*
-namespace cartographer {
-namespace mapping_3d {
-namespace scan_matching {
 
-// Computes the cost of inserting occupied space described by the point cloud
-// into the map. The cost increases with the amount of free space that would be
-// replaced by occupied space.
+
+template <typename FloatType>
+class Rigid3 {
+ public:
+  using Affine = Eigen::Transform<FloatType, 3, Eigen::Affine>;
+  using Vector = Eigen::Matrix<FloatType, 3, 1>;
+  using Quaternion = Eigen::Quaternion<FloatType>;
+  using AngleAxis = Eigen::AngleAxis<FloatType>;
+
+  Rigid3()
+      : translation_(Vector::Identity()), rotation_(Quaternion::Identity()) {}
+  // TODO(damonkohler): Remove
+  explicit Rigid3(const Affine& affine)
+      : translation_(affine.translation()), rotation_(affine.rotation()) {}
+  Rigid3(const Vector& translation, const Quaternion& rotation)
+      : translation_(translation), rotation_(rotation) {}
+  Rigid3(const Vector& translation, const AngleAxis& rotation)
+      : translation_(translation), rotation_(rotation) {}
+
+  static Rigid3 Rotation(const AngleAxis& angle_axis) {
+    return Rigid3(Vector::Zero(), Quaternion(angle_axis));
+  }
+
+  static Rigid3 Rotation(const Quaternion& rotation) {
+    return Rigid3(Vector::Zero(), rotation);
+  }
+
+  static Rigid3 Translation(const Vector& vector) {
+    return Rigid3(vector, Quaternion::Identity());
+  }
+
+  static Rigid3<FloatType> Identity() {
+    return Rigid3<FloatType>(Vector::Zero(), Quaternion::Identity());
+  }
+
+  template <typename OtherType>
+  Rigid3<OtherType> cast() const {
+    return Rigid3<OtherType>(translation_.template cast<OtherType>(),
+                             rotation_.template cast<OtherType>());
+  }
+
+  const Vector& translation() const { return translation_; }
+  const Quaternion& rotation() const { return rotation_; }
+
+  Rigid3 inverse() const {
+    const Quaternion rotation = rotation_.conjugate();
+    const Vector translation = -(rotation * translation_);
+    return Rigid3(translation, rotation);
+  }
+
+  string DebugString() const {
+    string out;
+    out.append("{ t: [");
+    out.append(std::to_string(translation().x()));
+    out.append(", ");
+    out.append(std::to_string(translation().y()));
+    out.append(", ");
+    out.append(std::to_string(translation().z()));
+    out.append("], q: [");
+    out.append(std::to_string(rotation().w()));
+    out.append(", ");
+    out.append(std::to_string(rotation().x()));
+    out.append(", ");
+    out.append(std::to_string(rotation().y()));
+    out.append(", ");
+    out.append(std::to_string(rotation().z()));
+    out.append("] }");
+    return out;
+  }
+
+ private:
+  Vector translation_;
+  Quaternion rotation_;
+};
+
+template <typename FloatType>
+Rigid3<FloatType> operator*(const Rigid3<FloatType>& lhs,
+                            const Rigid3<FloatType>& rhs) {
+  return Rigid3<FloatType>(
+      lhs.rotation() * rhs.translation() + lhs.translation(),
+      (lhs.rotation() * rhs.rotation()).normalized());
+}
+
+template <typename FloatType>
+typename Rigid3<FloatType>::Vector operator*(
+    const Rigid3<FloatType>& rigid,
+    const typename Rigid3<FloatType>::Vector& point) {
+  return rigid.rotation() * point + rigid.translation();
+}
+
+// This is needed for gmock.
+template <typename T>
+std::ostream& operator<<(std::ostream& os,
+                         const cartographer::transform::Rigid3<T>& rigid) {
+  os << rigid.DebugString();
+  return os;
+}
+
+using Rigid3d = Rigid3<double>;
+using Rigid3f = Rigid3<float>;
+
 class OccupiedSpaceCostFunctor {
  public:
   // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
   // add to all poses, and point cloud.
-  OccupiedSpaceCostFunctor(const double scaling_factor,
-                           const sensor::PointCloud& point_cloud,
-                           const HybridGrid& hybrid_grid)
-      : scaling_factor_(scaling_factor),
-        point_cloud_(point_cloud),
-        interpolated_grid_(hybrid_grid) {}
+  OccupiedSpaceCostFunctor(Eigen::Matrix<double, 3, 1> pos_world,
+                           Eigen::Matrix<double, 3, 1> pos_gps)
+      : pos_world_(pos_world),
+        pos_gps_(pos_gps) {}
 
   OccupiedSpaceCostFunctor(const OccupiedSpaceCostFunctor&) = delete;
   OccupiedSpaceCostFunctor& operator=(const OccupiedSpaceCostFunctor&) = delete;
@@ -66,14 +156,11 @@ class OccupiedSpaceCostFunctor {
   }
 
  private:
-  const double scaling_factor_;
-  const sensor::PointCloud& point_cloud_;
-  const InterpolatedGrid interpolated_grid_;
+  Eigen::Matrix<double, 3, 1> pos_world_;
+  Eigen::Matrix<double, 3, 1> pos_gps_;
 };
 
-}  // namespace scan_matching
-}  // namespace mapping_3d
-}  // namespace cartographer
-*/
 
-#endif  // CARTOGRAPHER_MAPPING_3D_SCAN_MATCHING_OCCUPIED_SPACE_COST_FUNCTOR_H_
+
+
+#endif  // COST_FUNCTOR_H
