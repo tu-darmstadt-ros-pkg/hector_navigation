@@ -17,8 +17,11 @@
 #ifndef COST_FUNCTOR_H
 #define COST_FUNCTOR_H
 
-#include "Eigen/Core"
+#include <iostream>
+#include <string>
 
+#include "Eigen/Core"
+#include "Eigen/Geometry"
 
 template <typename FloatType>
 class Rigid3 {
@@ -69,8 +72,8 @@ class Rigid3 {
     return Rigid3(translation, rotation);
   }
 
-  string DebugString() const {
-    string out;
+  std::string DebugString() const {
+    std::string out;
     out.append("{ t: [");
     out.append(std::to_string(translation().x()));
     out.append(", ");
@@ -112,7 +115,7 @@ typename Rigid3<FloatType>::Vector operator*(
 // This is needed for gmock.
 template <typename T>
 std::ostream& operator<<(std::ostream& os,
-                         const cartographer::transform::Rigid3<T>& rigid) {
+                         Rigid3<T>& rigid) {
   os << rigid.DebugString();
   return os;
 }
@@ -135,23 +138,21 @@ class OccupiedSpaceCostFunctor {
   template <typename T>
   bool operator()(const T* const translation, const T* const rotation,
                   T* const residual) const {
-    const transform::Rigid3<T> transform(
-        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(T(0), T(0), T(0)),
+    const Rigid3<T> transform(
+        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(translation[0], translation[1], translation[2]),
         Eigen::Quaternion<T>(rotation[0], rotation[1], rotation[2],
                              rotation[3]));
     return Evaluate(transform, residual);
   }
 
   template <typename T>
-  bool Evaluate(const transform::Rigid3<T>& transform,
+  bool Evaluate(const Rigid3<T>& transform,
                 T* const residual) const {
-    for (size_t i = 0; i < point_cloud_.size(); ++i) {
-      const Eigen::Matrix<T, 3, 1> world =
-          transform * point_cloud_[i].cast<T>();
-      const T probability =
-          interpolated_grid_.GetProbability(world[0], world[1], world[2]);
-      residual[i] = scaling_factor_ * (1. - probability);
-    }
+      const Eigen::Matrix<T, 3, 1> delta =
+      pos_gps_.cast<T>() - transform * pos_world_.cast<T>();
+      residual[0] = delta[0];
+      residual[1] = delta[1];
+      residual[2] = delta[2];
     return true;
   }
 

@@ -1,6 +1,8 @@
 #include "hector_gps_calibration/hector_gps_calibration.h"
 #include "hector_gps_calibration/rotation_cost_functor.h"
 
+#include <ceres/ceres.h>
+
 GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
     : tfListener(tfBuffer)
 {
@@ -37,6 +39,30 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
 void GPSCalibration::optimizeCallback(std_msgs::Empty msg)
 {
+    /*
+    ceres::Problem problem;
+    problem.AddResidualBlock(
+        new ceres::AutoDiffCostFunction<OccupiedSpaceCostFunctor,
+                                        4, 3, 4, 3, 4>(
+            new OccupiedSpaceCostFunctor(
+                options_.optimizing_local_trajectory_builder_options()
+                    .odometry_translation_weight(),
+                options_.optimizing_local_trajectory_builder_options()
+                    .odometry_rotation_weight(),
+                delta_pose)),
+        nullptr, batches_[i - 1].state.translation.data(),
+        batches_[i - 1].state.rotation.data(),
+        batches_[i].state.translation.data(),
+        batches_[i].state.rotation.data());
+  }
+
+      // Run the solver!
+      Solver::Options options;
+      options.linear_solver_type = ceres::DENSE_QR;
+      options.minimizer_progress_to_stdout = true;
+      Solver::Summary summary;
+      Solve(options, &problem, &summary);
+*/
 
 }
 

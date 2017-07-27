@@ -17,7 +17,6 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_eigen
   tf2_ros
   urdf
-  gps_common
 )
 
 ## System dependencies are found with CMake's conventions
