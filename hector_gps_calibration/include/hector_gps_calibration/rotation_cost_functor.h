@@ -123,23 +123,23 @@ std::ostream& operator<<(std::ostream& os,
 using Rigid3d = Rigid3<double>;
 using Rigid3f = Rigid3<float>;
 
-class OccupiedSpaceCostFunctor {
+class TranslationDeltaCostFunctor {
  public:
   // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
   // add to all poses, and point cloud.
-  OccupiedSpaceCostFunctor(Eigen::Matrix<double, 3, 1> pos_world,
+  TranslationDeltaCostFunctor(Eigen::Matrix<double, 3, 1> pos_world,
                            Eigen::Matrix<double, 3, 1> pos_gps)
       : pos_world_(pos_world),
         pos_gps_(pos_gps) {}
 
-  OccupiedSpaceCostFunctor(const OccupiedSpaceCostFunctor&) = delete;
-  OccupiedSpaceCostFunctor& operator=(const OccupiedSpaceCostFunctor&) = delete;
+  TranslationDeltaCostFunctor(const TranslationDeltaCostFunctor&) = delete;
+  TranslationDeltaCostFunctor& operator=(const TranslationDeltaCostFunctor&) = delete;
 
   template <typename T>
   bool operator()(const T* const translation, const T* const rotation,
                   T* const residual) const {
     const Rigid3<T> transform(
-        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(translation[0], translation[1], translation[2]),
+        Eigen::Map<const Eigen::Matrix<T, 3, 1>>(translation),
         Eigen::Quaternion<T>(rotation[0], rotation[1], rotation[2],
                              rotation[3]));
     return Evaluate(transform, residual);
