@@ -30,11 +30,13 @@
 #define HECTOR_GPS_CALIBRATION_H_
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
+ #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/utils.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Empty.h>
 #include "Eigen/Core"
+
 
 
 class GPSCalibration
@@ -47,16 +49,23 @@ private:
   void navSatCallback(nav_msgs::Odometry msg);
   void optimizeCallback(std_msgs::Empty msg);
   void optimize();
+  void publishTF(const ros::WallTimerEvent &unused_timer_event);
 
 
-  tf2_ros::Buffer tfBuffer;
-  tf2_ros::TransformListener tfListener;
+  tf2_ros::Buffer tf_buffer;
+  tf2_ros::TransformListener tf_listener;
+  tf2_ros::TransformBroadcaster tf_broadcaster;
 
   std::vector< Eigen::Matrix<double, 3, 1> > gps_poses_;
   std::vector< Eigen::Matrix<double, 3, 1> > world_poses_;
 
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;
+
+  std::vector<ros::WallTimer> wall_timers_;
+
+  std::array<double, 4> translation_;
+  std::array<double, 4> rotation_;
 
 };
 
