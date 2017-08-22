@@ -1,0 +1,6 @@
+<?xml version="1.0"?>
+<launch> 
+  <rosparam command="load" file="$(find hector_gps_calibration)/cfg/ahg_lab.yaml" />
+  <node pkg="hector_gps_calibration" type="hector_gps_calibration_node" name="gps_calibration" output="screen" respawn="true">
+  </node>
+</launch>

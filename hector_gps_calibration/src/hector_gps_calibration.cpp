@@ -8,7 +8,16 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
       translation_{{0,0,0}},
       rotation_{{1,0,0,0}}
 {
-    ros::NodeHandle pnh("~/");
+    nh.param<double>("translation_x", translation_[0], 0.0);
+    nh.param<double>("translation_y", translation_[1], 0.0);
+    nh.param<double>("translation_z", translation_[2], 0.0);
+
+    nh.param<double>("quaternion_w", rotation_[0], 1.0);
+    nh.param<double>("quaternion_x", rotation_[1], 0.0);
+    nh.param<double>("quaternion_y", rotation_[2], 0.0);
+    nh.param<double>("quaternion_z", rotation_[3], 0.0);
+
+    ROS_INFO("Initial GPS transformation: \n t: %f %f %f \n r: %f %f %f %f", translation_[0], translation_[1], translation_[2], rotation_[0], rotation_[1], rotation_[2], rotation_[3]);
 
     nav_sat_sub_ = nh.subscribe("/odom_gps", 10, &GPSCalibration::navSatCallback, this);
     optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);

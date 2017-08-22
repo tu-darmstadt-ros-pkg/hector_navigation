@@ -64,7 +64,7 @@ private:
 
   std::vector<ros::WallTimer> wall_timers_;
 
-  std::array<double, 4> translation_;
+  std::array<double, 3> translation_;
   std::array<double, 4> rotation_;
 
 };
