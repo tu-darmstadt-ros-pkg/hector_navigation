@@ -67,6 +67,8 @@ private:
   std::array<double, 3> translation_;
   std::array<double, 4> rotation_;
 
+  bool write_debug_file_;
+
 };
 
 #endif //HECTOR_GPS_CALIBRATION_H_

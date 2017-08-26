@@ -3,6 +3,9 @@
 
 #include <ceres/ceres.h>
 
+#include <iostream>
+#include <fstream>
+
 GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
     : tf_listener(tf_buffer),
       translation_{{0,0,0}},
@@ -16,6 +19,8 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
     nh.param<double>("quaternion_x", rotation_[1], 0.0);
     nh.param<double>("quaternion_y", rotation_[2], 0.0);
     nh.param<double>("quaternion_z", rotation_[3], 0.0);
+
+    nh.param<bool>("write_debug_file",write_debug_file_, false);
 
     ROS_INFO("Initial GPS transformation: \n t: %f %f %f \n r: %f %f %f %f", translation_[0], translation_[1], translation_[2], rotation_[0], rotation_[1], rotation_[2], rotation_[3]);
 
@@ -46,7 +51,6 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
-
     Eigen::Matrix<double, 3, 1> pos_gps(msg.pose.pose.position.x,
                                     msg.pose.pose.position.y,
                                     0);
@@ -54,7 +58,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
     geometry_msgs::TransformStamped transformStamped;
     try{
      transformStamped = tf_buffer.lookupTransform("world", "navsat_link" /*msg.header.frame_id*/,
-                              msg.header.stamp, ros::Duration(0.2));
+                              msg.header.stamp, ros::Duration(3.0));
     }
     catch (tf2::TransformException &ex) {
      ROS_WARN("%s",ex.what());
@@ -101,9 +105,32 @@ void GPSCalibration::optimize()
     //  options.minimizer_progress_to_stdout = true;
     ceres::Solver::Summary summary;
     ceres::Solve(options, &problem, &summary);
-    //std::cout<<summary.FullReport()<<std::endl;
+    if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
+        ROS_WARN("%s", summary.FullReport().c_str());
     ROS_INFO("Translation %f %f %f", translation_[0], translation_[1], translation_[2]);
     ROS_INFO("Rotation %f %f %f %f", rotation_[0], rotation_[1], rotation_[2], rotation_[3]);
+
+    if(write_debug_file_)
+    {
+        std::ofstream myfile;
+        myfile.open ("gps_alignment_solution.csv");
+        const Rigid3<double> transform = Rigid3<double>(
+            Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], translation_[2]),
+            Eigen::Quaternion<double>(rotation_[0], rotation_[1], rotation_[2],
+                                 rotation_[3]));
+
+        myfile <<"gps_x"<<","<<"gps_y"<<","
+               <<"gps_z"<<","<<"world_x"<<","
+               <<"world_y"<<","<<"world_z"<<"\n";
+        for(size_t i = 0; i<gps_poses_.size(); ++i)
+        {
+            const Eigen::Matrix<double, 3, 1> pos_world_gps = transform * world_poses_[i];
+            myfile << std::setprecision (15)<< gps_poses_[i][0]<<","<<gps_poses_[i][1]<<","
+                   <<gps_poses_[i][2]<<","<<pos_world_gps[0]<<","
+                   <<pos_world_gps[1]<<","<<pos_world_gps[2]<<"\n";
+        }
+        myfile.close();
+    }
 }
 
 void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
