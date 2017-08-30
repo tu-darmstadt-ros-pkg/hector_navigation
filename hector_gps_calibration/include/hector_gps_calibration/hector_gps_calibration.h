@@ -63,6 +63,8 @@ private:
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;
 
+  ros::Publisher nav_sat_fix_pub_;
+
   std::vector<ros::WallTimer> wall_timers_;
 
   std::array<double, 2> translation_;

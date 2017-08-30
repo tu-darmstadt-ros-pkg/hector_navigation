@@ -1,7 +1,9 @@
-translation_x: 475357.65
-translation_y: 5525012.66
-orientation: 0.0
+translation_x: 475361.340403
+translation_y: 5525036.721478
+orientation: 2.059036
 utm_zone: '32U'
 write_debug_file: True
 max_covariance: 10.0
 min_pose_distance: 0.2
+
+

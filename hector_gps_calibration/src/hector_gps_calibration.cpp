@@ -3,6 +3,8 @@
 #include "hector_gps_calibration/angle_local_parameterization.h"
 
 #include <ceres/ceres.h>
+#include <geodesy/utm.h>
+#include <sensor_msgs/NavSatFix.h>
 
 #include <iostream>
 #include <fstream>
@@ -18,13 +20,16 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   nh.param<double>("orientation", rotation_, 0.0);
 
   nh.param<bool>("write_debug_file", write_debug_file_, false);
-  nh.param<double>("max_covariance", rotation_, 10.0);
-  nh.param<double>("min_pose_distance", rotation_, 0.2);
+  nh.param<double>("max_covariance", max_covariance_, 10.0);
+  nh.param<double>("min_pose_distance", min_pose_distance_, 0.2);
 
   ROS_INFO("Initial GPS transformation: \n t: %f %f \n r: %f", translation_[0], translation_[1], rotation_);
 
   nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
   optimize_sub_ = nh.subscribe("gps/run_optimization", 1, &GPSCalibration::navSatCallback, this);
+
+  nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
+
   /*TEST
     Eigen::Matrix<double, 3, 1> pos_gps(0, 0, 10);
     gps_poses_.emplace_back(pos_gps);
@@ -77,7 +82,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
   if(gps_poses_.size() > 0)
   {
     Eigen::Matrix<double, 2, 1> delta_pose = world_poses_[gps_poses_.size() - 1] - pos_world;
-    double pose_distance = std::sqrt(delta_pose.transpose()*delta_pose);
+    double pose_distance = std::sqrt(delta_pose.transpose() * delta_pose);
     if(pose_distance < min_pose_distance_)
       redundant_data = true;
   }
@@ -169,5 +174,36 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   transformStamped.transform.rotation.z = std::sin(rotation_/2.0);
 
   tf_broadcaster.sendTransform(transformStamped);
+
+
+  transformStamped.header.stamp = ros::Time::now();
+  transformStamped.header.frame_id = "world_enu";
+  transformStamped.child_frame_id = "world";
+  transformStamped.transform.translation.x = 0;
+  transformStamped.transform.translation.y = 0;
+  transformStamped.transform.translation.z = 0;
+  transformStamped.transform.rotation.w = std::cos(rotation_/2.0);
+  transformStamped.transform.rotation.x = 0.0;
+  transformStamped.transform.rotation.y = 0.0;
+  transformStamped.transform.rotation.z = std::sin(rotation_/2.0);
+
+  tf_broadcaster.sendTransform(transformStamped);
+
+  geodesy::UTMPoint utm_point;
+  utm_point.band = 'U';
+  utm_point.zone = 32;
+  utm_point.easting = translation_[0];
+  utm_point.northing = translation_[1];
+  utm_point.altitude = 0.0;
+  geographic_msgs::GeoPoint geo_point = geodesy::toMsg(utm_point);
+
+
+  sensor_msgs::NavSatFix nav_sat_fix;
+  nav_sat_fix.header.stamp = ros::Time::now();
+  nav_sat_fix.header.frame_id = "world";
+  nav_sat_fix.latitude = geo_point.latitude;
+  nav_sat_fix.longitude = geo_point.longitude;
+  nav_sat_fix.altitude = 0.0;
+  nav_sat_fix_pub_.publish(nav_sat_fix);
 
 }

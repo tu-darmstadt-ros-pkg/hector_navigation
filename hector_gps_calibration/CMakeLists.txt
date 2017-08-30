@@ -8,6 +8,7 @@ add_compile_options(-std=c++11)
 ## if COMPONENTS list like find_package(catkin REQUIRED COMPONENTS xyz)
 ## is used, also find other catkin packages
 find_package(catkin REQUIRED COMPONENTS
+  geodesy
   geometry_msgs
   roscpp
   rospy
@@ -112,7 +113,7 @@ find_package(Eigen3 REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_gps_calibration
-  CATKIN_DEPENDS ceres-solver geometry_msgs roscpp rospy sensor_msgs std_msgs tf2 tf2_eigen tf2_ros urdf eigen
+  CATKIN_DEPENDS ceres-solver geodesy geometry_msgs roscpp rospy sensor_msgs std_msgs tf2 tf2_eigen tf2_ros urdf eigen
 #  DEPENDS system_lib
 )
 
@@ -131,14 +132,10 @@ include_directories(
 add_library(${PROJECT_NAME}  src/hector_gps_calibration.cpp
 )
 
-
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-  "${EIGEN3_INCLUDE_DIR}")
-target_link_libraries(${PROJECT_NAME} PUBLIC ${EIGEN3_LIBRARIES})
+  "${EIGEN3_INCLUDE_DIR}" "${CERES_INCLUDE_DIRS}")
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${CERES_LIBRARIES})
 
-target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
-  "${CERES_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME} PUBLIC ${CERES_LIBRARIES})
 
 ## Add cmake target dependencies of the library
 ## as an example, code may need to be generated before libraries
@@ -161,8 +158,11 @@ add_executable(${PROJECT_NAME}_node src/hector_gps_calibration_node.cpp)
 # add_dependencies(${PROJECT_NAME}_node ${${PROJECT_NAME}_EXPORTED_TARGETS} ${catkin_EXPORTED_TARGETS})
 
 ## Specify libraries to link a library or executable target against
+#target_link_libraries(${PROJECT_NAME}
+#  ${catkin_LIBRARIES}
+#)
+
 target_link_libraries(${PROJECT_NAME}_node
-  ${catkin_LIBRARIES}
   ${PROJECT_NAME}
 )
 
