@@ -1,9 +1,7 @@
 translation_x: 475357.65
 translation_y: 5525012.66
-translation_z: 150.0
-quaternion_w: 1.0
-quaternion_x: 0.0
-quaternion_y: 0.0
-quaternion_z: 0.0
+orientation: 0.0
 utm_zone: '32U'
 write_debug_file: True
+max_covariance: 10.0
+min_pose_distance: 0.2

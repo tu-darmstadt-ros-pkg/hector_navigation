@@ -18,6 +18,8 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   nh.param<double>("orientation", rotation_, 0.0);
 
   nh.param<bool>("write_debug_file", write_debug_file_, false);
+  nh.param<double>("max_covariance", rotation_, 10.0);
+  nh.param<double>("min_pose_distance", rotation_, 0.2);
 
   ROS_INFO("Initial GPS transformation: \n t: %f %f \n r: %f", translation_[0], translation_[1], rotation_);
 
@@ -48,9 +50,10 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
+  msg.header.stamp = ros::Time::now(); //Ugly hack to work around timestamp issues specific to our robot
 
-  if(msg.pose.covariance[0] > 1000.0) {
-    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f", msg.pose.covariance[0]);
+  if(msg.pose.covariance[0] > max_covariance_ ) {
+    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
 
@@ -60,19 +63,30 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
   geometry_msgs::TransformStamped transformStamped;
   try{
     transformStamped = tf_buffer.lookupTransform("world", "navsat_link",
-                                                 msg.header.stamp, ros::Duration(3.0));
+                                                 msg.header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
+
     return;
   }
 
   Eigen::Matrix<double, 2, 1> pos_world(transformStamped.transform.translation.x,
                                         transformStamped.transform.translation.y);
-
-  gps_poses_.emplace_back(pos_gps);
-  world_poses_.emplace_back(pos_world);
-  covariances_.emplace_back(msg.pose.covariance[0]);
+  bool redundant_data = false;
+  if(gps_poses_.size() > 0)
+  {
+    Eigen::Matrix<double, 2, 1> delta_pose = world_poses_[gps_poses_.size() - 1] - pos_world;
+    double pose_distance = std::sqrt(delta_pose.transpose()*delta_pose);
+    if(pose_distance < min_pose_distance_)
+      redundant_data = true;
+  }
+  if(!redundant_data)
+  {
+    gps_poses_.emplace_back(pos_gps);
+    world_poses_.emplace_back(pos_world);
+    covariances_.emplace_back(msg.pose.covariance[0]);
+  }
 
   if((world_poses_.size() % 10 == 0) && world_poses_.size() > 0)
     optimize();

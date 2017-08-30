@@ -69,6 +69,8 @@ private:
   double rotation_;
 
   bool write_debug_file_;
+  double max_covariance_;
+  double min_pose_distance_;
 
 };
 
