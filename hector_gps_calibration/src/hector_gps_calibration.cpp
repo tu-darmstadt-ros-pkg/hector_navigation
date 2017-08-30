@@ -21,8 +21,8 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
   ROS_INFO("Initial GPS transformation: \n t: %f %f \n r: %f", translation_[0], translation_[1], rotation_);
 
-  nav_sat_sub_ = nh.subscribe("/odom_gps", 10, &GPSCalibration::navSatCallback, this);
-  optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);
+  nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
+  optimize_sub_ = nh.subscribe("gps/run_optimization", 1, &GPSCalibration::navSatCallback, this);
   /*TEST
     Eigen::Matrix<double, 3, 1> pos_gps(0, 0, 10);
     gps_poses_.emplace_back(pos_gps);
@@ -48,11 +48,14 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
-  if(msg.header.frame_id != "navsat_link") {
-    ROS_WARN("Expecting odometry for navsat_link, received: %s", msg.header.frame_id.c_str());
+
+  if(msg.pose.covariance[0] > 1000.0) {
+    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f", msg.pose.covariance[0]);
+    return;
   }
-    Eigen::Matrix<double, 2, 1> pos_gps(msg.pose.pose.position.x,
-                                        msg.pose.pose.position.y);
+
+  Eigen::Matrix<double, 2, 1> pos_gps(msg.pose.pose.position.x,
+                                      msg.pose.pose.position.y);
 
   geometry_msgs::TransformStamped transformStamped;
   try{
@@ -69,6 +72,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
   gps_poses_.emplace_back(pos_gps);
   world_poses_.emplace_back(pos_world);
+  covariances_.emplace_back(msg.pose.covariance[0]);
 
   if((world_poses_.size() % 10 == 0) && world_poses_.size() > 0)
     optimize();
@@ -93,10 +97,10 @@ void GPSCalibration::optimize()
           new ceres::AutoDiffCostFunction<TransformDeltaCostFunctor,
           2, 2, 1>(
             new TransformDeltaCostFunctor(world_poses_[i],
-                                            gps_poses_[i])),
+                                          gps_poses_[i],
+                                          covariances_[i])),
           nullptr, translation_.data(), &rotation_);
   }
-  //problem.SetParameterization(&rotation_, new ceres::QuaternionParameterization());
 
   ceres::LocalParameterization* angle_local_parameterization =
       ceres::examples::AngleLocalParameterization::Create();
@@ -121,15 +125,15 @@ void GPSCalibration::optimize()
     const Rigid3<double> transform = Rigid3<double>(
           Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], 0.0),
         Eigen::Quaternion<double>(std::cos(rotation_/2.0), 0.0, 0.0,
-        std::sin(rotation_/2.0)));
+                                  std::sin(rotation_/2.0)));
 
     myfile <<"gps_x"<<","<<"gps_y"<<","
-          <<"world_x"<<","<<"world_y"<<"\n";
+          <<"world_x"<<","<<"world_y"<<","<<"covariance"<<"\n";
     for(size_t i = 0; i<gps_poses_.size(); ++i)
     {
       const Eigen::Matrix<double, 3, 1> pos_world_gps = transform * Eigen::Matrix<double, 3, 1>(world_poses_[i][0], world_poses_[i][1], 0.0);
       myfile << std::setprecision (15)<< gps_poses_[i][0]<<","<<gps_poses_[i][1]<<","
-            <<pos_world_gps[0]<<","<<pos_world_gps[1]<<"\n";
+             <<pos_world_gps[0]<<","<<pos_world_gps[1]<<","<<covariances_[i]<<"\n";
     }
     myfile.close();
   }

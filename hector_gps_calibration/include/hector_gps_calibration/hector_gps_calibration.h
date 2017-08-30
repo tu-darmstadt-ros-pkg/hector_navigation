@@ -58,6 +58,7 @@ private:
 
   std::vector< Eigen::Matrix<double, 2, 1> > gps_poses_;
   std::vector< Eigen::Matrix<double, 2, 1> > world_poses_;
+  std::vector< double > covariances_;
 
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;

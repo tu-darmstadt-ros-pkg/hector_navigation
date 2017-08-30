@@ -16,8 +16,8 @@ for i in range(0,  df["world_x"].size, 100):
     p2 = [df["world_x"][i], df["world_y"][i]]
     newline(p1,p2)
     
-plt.plot(df["gps_x"], df["gps_y"], 'x', label="gps")
-plt.plot(df["world_x"], df["world_y"], 'x', label="world")
+plt.scatter(df["gps_x"], df["gps_y"], label="gps", c=df["covariance"], marker="+")
+plt.scatter(df["world_x"], df["world_y"], label="world", marker="+")
 plt.xlabel('x[m]')
 plt.ylabel('y[m]')
 

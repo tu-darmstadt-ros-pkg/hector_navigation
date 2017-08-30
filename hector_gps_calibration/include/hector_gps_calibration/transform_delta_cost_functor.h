@@ -129,9 +129,17 @@ public:
     // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
     // add to all poses, and point cloud.
     TransformDeltaCostFunctor(Eigen::Matrix<double, 2, 1> pos_world,
-                                Eigen::Matrix<double, 2, 1> pos_gps)
+                              Eigen::Matrix<double, 2, 1> pos_gps,
+                              double covariance)
         : pos_world_(pos_world),
-          pos_gps_(pos_gps) {}
+          pos_gps_(pos_gps),
+          inv_covariance_(1.0/covariance){
+        if(covariance < 1e-7)
+        {
+            LOG(WARNING)<<"TransformDeltaCostFunctor covariance too small: "<<covariance;
+            inv_covariance_ = 1.0;
+        }
+    }
 
     TransformDeltaCostFunctor(const TransformDeltaCostFunctor&) = delete;
     TransformDeltaCostFunctor& operator=(const TransformDeltaCostFunctor&) = delete;
@@ -152,14 +160,15 @@ public:
         const Eigen::Matrix<T, 3, 1> delta =
                 Eigen::Matrix<T, 3, 1>(T(pos_gps_[0]), T(pos_gps_[1]), T(0))
                 - transform * Eigen::Matrix<T, 3, 1>(T(pos_world_[0]), T(pos_world_[1]), T(0));
-        residual[0] = delta[0];
-        residual[1] = delta[1];
+        residual[0] = T(inv_covariance_)*delta[0];
+        residual[1] = T(inv_covariance_)*delta[1];
         return true;
     }
 
 private:
     Eigen::Matrix<double, 2, 1> pos_world_;
     Eigen::Matrix<double, 2, 1> pos_gps_;
+    double inv_covariance_;
 };
 
 
