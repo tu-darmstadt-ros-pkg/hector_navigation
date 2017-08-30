@@ -30,7 +30,7 @@
 #define HECTOR_GPS_CALIBRATION_H_
 #include <ros/ros.h>
 #include <tf2_ros/transform_listener.h>
- #include <tf2_ros/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <tf2/utils.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
@@ -56,16 +56,16 @@ private:
   tf2_ros::TransformListener tf_listener;
   tf2_ros::TransformBroadcaster tf_broadcaster;
 
-  std::vector< Eigen::Matrix<double, 3, 1> > gps_poses_;
-  std::vector< Eigen::Matrix<double, 3, 1> > world_poses_;
+  std::vector< Eigen::Matrix<double, 2, 1> > gps_poses_;
+  std::vector< Eigen::Matrix<double, 2, 1> > world_poses_;
 
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;
 
   std::vector<ros::WallTimer> wall_timers_;
 
-  std::array<double, 3> translation_;
-  std::array<double, 4> rotation_;
+  std::array<double, 2> translation_;
+  double rotation_;
 
   bool write_debug_file_;
 
