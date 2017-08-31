@@ -58,7 +58,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
   msg.header.stamp = ros::Time::now(); //Ugly hack to work around timestamp issues specific to our robot
 
   if(msg.pose.covariance[0] > max_covariance_ ) {
-    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
+    //ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
 
@@ -160,47 +160,60 @@ void GPSCalibration::optimize()
 
 void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 {
+  ros::Time publish_time = ros::Time::now();
 
-  geometry_msgs::TransformStamped transformStamped;
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "utm";
-  transformStamped.child_frame_id = "world";
-  transformStamped.transform.translation.x = translation_[0];
-  transformStamped.transform.translation.y = translation_[1];
-  transformStamped.transform.translation.z = 0;
-  transformStamped.transform.rotation.w = std::cos(rotation_/2.0);
-  transformStamped.transform.rotation.x = 0.0;
-  transformStamped.transform.rotation.y = 0.0;
-  transformStamped.transform.rotation.z = std::sin(rotation_/2.0);
+  geometry_msgs::TransformStamped utm_world_transform;
+  utm_world_transform.header.stamp = publish_time;
+  utm_world_transform.header.frame_id = "utm";
+  utm_world_transform.child_frame_id = "world";
+  utm_world_transform.transform.translation.x = translation_[0];
+  utm_world_transform.transform.translation.y = translation_[1];
+  utm_world_transform.transform.translation.z = 0;
+  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
+  utm_world_transform.transform.rotation.x = 0.0;
+  utm_world_transform.transform.rotation.y = 0.0;
+  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
+  //tf_broadcaster.sendTransform(utm_world_transform);
 
-  tf_broadcaster.sendTransform(transformStamped);
+
+  geometry_msgs::TransformStamped worldenu_world_transform;
+  worldenu_world_transform.header.stamp = publish_time;
+  worldenu_world_transform.header.frame_id = "world_enu";
+  worldenu_world_transform.child_frame_id = "world";
+  worldenu_world_transform.transform.translation.x = 0;
+  worldenu_world_transform.transform.translation.y = 0;
+  worldenu_world_transform.transform.translation.z = 0;
+  worldenu_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
+  worldenu_world_transform.transform.rotation.x = 0.0;
+  worldenu_world_transform.transform.rotation.y = 0.0;
+  worldenu_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
+  tf_broadcaster.sendTransform(worldenu_world_transform);
+
+  geometry_msgs::TransformStamped world_navsat_transform;
+  try{
+    world_navsat_transform = tf_buffer.lookupTransform("world", "base_link",
+                                                 publish_time, ros::Duration(1.0));
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
+    return;
+  }
 
 
-  transformStamped.header.stamp = ros::Time::now();
-  transformStamped.header.frame_id = "world_enu";
-  transformStamped.child_frame_id = "world";
-  transformStamped.transform.translation.x = 0;
-  transformStamped.transform.translation.y = 0;
-  transformStamped.transform.translation.z = 0;
-  transformStamped.transform.rotation.w = std::cos(rotation_/2.0);
-  transformStamped.transform.rotation.x = 0.0;
-  transformStamped.transform.rotation.y = 0.0;
-  transformStamped.transform.rotation.z = std::sin(rotation_/2.0);
-
-  tf_broadcaster.sendTransform(transformStamped);
+  geometry_msgs::TransformStamped utm_navsat_transform;
+  tf2::doTransform(world_navsat_transform, utm_navsat_transform, utm_world_transform);
 
   geodesy::UTMPoint utm_point;
   utm_point.band = 'U';
   utm_point.zone = 32;
-  utm_point.easting = translation_[0];
-  utm_point.northing = translation_[1];
+  utm_point.easting = utm_navsat_transform.transform.translation.x;
+  utm_point.northing = utm_navsat_transform.transform.translation.y;
   utm_point.altitude = 0.0;
   geographic_msgs::GeoPoint geo_point = geodesy::toMsg(utm_point);
 
-
   sensor_msgs::NavSatFix nav_sat_fix;
-  nav_sat_fix.header.stamp = ros::Time::now();
-  nav_sat_fix.header.frame_id = "world";
+  nav_sat_fix.header.stamp = publish_time;
+  nav_sat_fix.header.frame_id = "base_link";
   nav_sat_fix.latitude = geo_point.latitude;
   nav_sat_fix.longitude = geo_point.longitude;
   nav_sat_fix.altitude = 0.0;
