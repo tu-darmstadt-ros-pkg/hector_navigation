@@ -23,6 +23,9 @@ find_package(catkin REQUIRED COMPONENTS
 ## System dependencies are found with CMake's conventions
 find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
+find_package(orocos_kdl REQUIRED)
+
+
 
 
 ## Uncomment this if the package has a setup.py. This macro ensures
@@ -134,7 +137,7 @@ add_library(${PROJECT_NAME}  src/hector_gps_calibration.cpp
 
 target_include_directories(${PROJECT_NAME} SYSTEM PUBLIC
   "${EIGEN3_INCLUDE_DIR}" "${CERES_INCLUDE_DIRS}")
-target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${CERES_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES} ${EIGEN3_LIBRARIES} ${CERES_LIBRARIES} ${orocos_kdl_LIBRARIES})
 
 
 ## Add cmake target dependencies of the library
