@@ -1,0 +1,10 @@
+<?xml version="1.0"?>
+<launch> 
+  <rosparam command="load" file="$(find hector_gps_calibration)/cfg/rundeturm_street.yaml" />
+  <node pkg="hector_gps_calibration" type="hector_gps_calibration_node" name="gps_calibration" output="screen" respawn="true">
+  <remap from="odom_gps" to="/imu_3dm_node/gps/odom"/>  
+  </node>
+</launch>
+
+
+
