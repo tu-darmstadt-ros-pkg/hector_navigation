@@ -117,6 +117,9 @@ add_executable(hector_elevation_visualization_node src/hector_elevation_visualiz
 # add_dependencies(hector_elevation_visualization_node hector_elevation_visualization_generate_messages_cpp)
 add_dependencies(hector_elevation_visualization_node hector_elevation_msgs_generate_messages_cpp)
 
+# Make sure config headers are build before compiling node
+add_dependencies(hector_elevation_visualization_node ${PROJECT_NAME}_gencfg)
+
 ## Specify libraries to link a library or executable target against
 target_link_libraries(hector_elevation_visualization_node
   ${catkin_LIBRARIES}
