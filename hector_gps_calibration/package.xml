@@ -40,7 +40,7 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>ceres-solver</build_depend>
+  <build_depend>ceres_catkin</build_depend>
   <build_depend>geodesy</build_depend>
   <build_depend>geometry_msgs</build_depend>
   <build_depend>orocos_kdl</build_depend>
