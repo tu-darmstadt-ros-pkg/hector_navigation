@@ -22,7 +22,7 @@ find_package(catkin REQUIRED COMPONENTS
 )
 
 ## System dependencies are found with CMake's conventions
-find_package(Ceres REQUIRED)
+#find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(orocos_kdl REQUIRED)
 
@@ -117,7 +117,7 @@ find_package(orocos_kdl REQUIRED)
 catkin_package(
   INCLUDE_DIRS include
   LIBRARIES hector_gps_calibration
-  CATKIN_DEPENDS ceres-solver geodesy geometry_msgs roscpp rospy sensor_msgs std_msgs tf2 tf2_eigen tf2_ros urdf eigen
+  CATKIN_DEPENDS geodesy geometry_msgs roscpp rospy sensor_msgs std_msgs tf2 tf2_eigen tf2_ros urdf eigen
 #  DEPENDS system_lib
 )
 
