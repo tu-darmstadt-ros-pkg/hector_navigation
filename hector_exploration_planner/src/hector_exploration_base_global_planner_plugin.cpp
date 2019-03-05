@@ -28,7 +28,7 @@
 
 #include <hector_exploration_planner/hector_exploration_base_global_planner_plugin.h>
 
-PLUGINLIB_DECLARE_CLASS(hector_exploration_planner, HectorExplorationBaseGlobalPlannerPlugin, hector_exploration_planner::HectorExplorationBaseGlobalPlannerPlugin, nav_core::BaseGlobalPlanner);
+PLUGINLIB_EXPORT_CLASS(hector_exploration_planner::HectorExplorationBaseGlobalPlannerPlugin, nav_core::BaseGlobalPlanner);
 
 using namespace hector_exploration_planner;
 

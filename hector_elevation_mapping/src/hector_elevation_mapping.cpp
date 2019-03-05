@@ -7,7 +7,7 @@
 
 namespace hector_elevation_mapping
 {
-PLUGINLIB_DECLARE_CLASS(hector_elevation_mapping, ElevationMapping, hector_elevation_mapping::ElevationMapping, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(hector_elevation_mapping::ElevationMapping, nodelet::Nodelet)
 
 void ElevationMapping::onInit()
 {

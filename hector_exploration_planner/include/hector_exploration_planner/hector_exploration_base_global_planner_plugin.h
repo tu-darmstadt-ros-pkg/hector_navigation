@@ -34,7 +34,7 @@
 #include <nav_core/base_global_planner.h>
 #include <pluginlib/class_list_macros.h>
 
-//PLUGINLIB_DECLARE_CLASS(hector_global_planner, HectorGlobalPlanner, hector_global_planner::HectorGlobalPlanner, nav_core::BaseGlobalPlanner);
+//PLUGINLIB_EXPORT_CLASS(hector_global_planner::HectorGlobalPlanner, nav_core::BaseGlobalPlanner);
 
 namespace hector_exploration_planner{
 
