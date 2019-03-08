@@ -283,7 +283,8 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
   // If we have been in inner explore before, check if we have reached the previous inner explore goal
   if (last_mode_ == INNER_EXPLORE){
 
-    tf::Stamped<tf::Pose> robotPose;
+    geometry_msgs::PoseStamped robotPose;
+//    tf::Stamped<tf::Pose> robotPose;
     if(!costmap_ros_->getRobotPose(robotPose)){
       ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
     }
@@ -294,22 +295,20 @@ bool HectorExplorationPlanner::doInnerExploration(const geometry_msgs::PoseStamp
     double xw, yw;
     costmap_->mapToWorld(xm, ym, xw, yw);
 
-    double dx = xw - robotPose.getOrigin().getX();
-    double dy = yw - robotPose.getOrigin().getY();
+    double dx = xw - robotPose.pose.position.x;
+    double dy = yw - robotPose.pose.position.y;
 
     //If we have not  reached the previous goal, try planning and moving toward it.
     //If planning fails, we just continue below this block and try to find another inner frontier
     if ( (dx*dx + dy*dy) > 0.5*0.5){
 
-      geometry_msgs::PoseStamped robotPoseMsg;
-      tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
       geometry_msgs::PoseStamped goalMsg;
       goalMsg.pose.position.x = xw;
       goalMsg.pose.position.y = yw;
       goalMsg.pose.orientation.w = 1.0;
 
-      if(makePlan(robotPoseMsg, goalMsg, plan)){
+      if(makePlan(robotPose, goalMsg, plan)){
         //Successfully generated plan to (previous) inner explore goal
         ROS_INFO("[hector_exploration_planner] inner-exploration: Planning to previous inner frontier");
         last_mode_ = INNER_EXPLORE;
@@ -712,8 +711,8 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
 
       if(thisDelta >= (unsigned int) p_min_obstacle_dist_){
         if(obstacle_trans_array_[currentPoint] >= (unsigned int) p_min_obstacle_dist_){
-          if(abs(thisDelta - p_min_obstacle_dist_) < minDelta){
-            minDelta = abs(thisDelta - p_min_obstacle_dist_);
+          if(abs(int(thisDelta - p_min_obstacle_dist_)) < minDelta){
+            minDelta = abs(int(thisDelta - p_min_obstacle_dist_));
             nextPoint = adjacentPoints[dirPoints[i]];
             oldDirection = dirPoints[i];
           }
@@ -739,9 +738,9 @@ bool HectorExplorationPlanner::exploreWalls(const geometry_msgs::PoseStamped &st
       }
     }
 
-    if(t==3 && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[1]]]) < STRAIGHT_COST
-    && abs(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST
-    && abs(obstacle_trans_array_[adjacentPoints[dirPoints[1]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]]) < STRAIGHT_COST){
+    if(t==3 && abs(int(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[1]]])) < STRAIGHT_COST
+    && abs(int(obstacle_trans_array_[adjacentPoints[dirPoints[0]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]])) < STRAIGHT_COST
+    && abs(int(obstacle_trans_array_[adjacentPoints[dirPoints[1]]] - obstacle_trans_array_[adjacentPoints[dirPoints[2]]])) < STRAIGHT_COST){
       nextPoint=adjacentPoints[dirPoints[2]];
       oldDirection=dirPoints[2];
     }
@@ -1145,14 +1144,13 @@ bool HectorExplorationPlanner::findFrontiersCloseToPath(std::vector<geometry_msg
         ROS_INFO("[hector_exploration_planner] pushed %u goals (trajectory) for close to robot frontier search", (unsigned int)goals.size());
 
         // make exploration transform
-        tf::Stamped<tf::Pose> robotPose;
+	geometry_msgs::PoseStamped robotPose;
+        //tf::Stamped<tf::Pose> robotPose;
         if(!costmap_ros_->getRobotPose(robotPose)){
           ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
         }
-        geometry_msgs::PoseStamped robotPoseMsg;
-        tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
-        if (!buildexploration_trans_array_(robotPoseMsg, goals, false, false)){
+        if (!buildexploration_trans_array_(robotPose, goals, false, false)){
           ROS_WARN("[hector_exploration_planner]: Creating exploration transform array in find inner frontier failed, aborting.");
           return false;
         }
@@ -1489,14 +1487,13 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       ROS_DEBUG("[hector_exploration_planner] pushed %u goals (trajectory) for inner frontier-search", (unsigned int)goals.size());
 
       // make exploration transform
-      tf::Stamped<tf::Pose> robotPose;
+	geometry_msgs::PoseStamped robotPose;
+//      tf::Stamped<tf::Pose> robotPose;
       if(!costmap_ros_->getRobotPose(robotPose)){
         ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
       }
-      geometry_msgs::PoseStamped robotPoseMsg;
-      tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
-      if (!buildexploration_trans_array_(robotPoseMsg, goals, false)){
+      if (!buildexploration_trans_array_(robotPose, goals, false)){
         ROS_WARN("[hector_exploration_planner]: Creating exploration transform array in find inner frontier failed, aborting.");
         return false;
       }
@@ -1504,7 +1501,7 @@ bool HectorExplorationPlanner::findInnerFrontier(std::vector<geometry_msgs::Pose
       inner_vis_->publishVisOnDemand(*costmap_, exploration_trans_array_.get());
 
       unsigned int x,y;
-      costmap_->worldToMap(robotPoseMsg.pose.position.x,robotPoseMsg.pose.position.y,x,y);
+      costmap_->worldToMap(robotPose.pose.position.x,robotPose.pose.position.y,x,y);
 
 
 
@@ -1678,12 +1675,11 @@ bool HectorExplorationPlanner::isFreeFrontiers(int point){
 
 bool HectorExplorationPlanner::isFrontierReached(int point){
 
-  tf::Stamped<tf::Pose> robotPose;
+//  tf::Stamped<tf::Pose> robotPose;
+geometry_msgs::PoseStamped robotPose;
   if(!costmap_ros_->getRobotPose(robotPose)){
     ROS_WARN("[hector_exploration_planner]: Failed to get RobotPose");
   }
-  geometry_msgs::PoseStamped robotPoseMsg;
-  tf::poseStampedTFToMsg(robotPose, robotPoseMsg);
 
   unsigned int fx,fy;
   double wfx,wfy;
@@ -1691,8 +1687,8 @@ bool HectorExplorationPlanner::isFrontierReached(int point){
   costmap_->mapToWorld(fx,fy,wfx,wfy);
 
 
-  double dx = robotPoseMsg.pose.position.x - wfx;
-  double dy = robotPoseMsg.pose.position.y - wfy;
+  double dx = robotPose.pose.position.x - wfx;
+  double dy = robotPose.pose.position.y - wfy;
 
   if ( (dx*dx) + (dy*dy) < (p_dist_for_goal_reached_*p_dist_for_goal_reached_)) {
     ROS_DEBUG("[hector_exploration_planner]: frontier is within the squared range of: %f", p_dist_for_goal_reached_);

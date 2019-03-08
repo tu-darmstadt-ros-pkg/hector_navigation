@@ -40,6 +40,8 @@
 
 #include <boost/shared_array.hpp>
 
+#include <tf/transform_broadcaster.h>
+
 namespace hector_exploration_planner{
 
 class ExplorationPlannerConfig;
