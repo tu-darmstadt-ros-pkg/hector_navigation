@@ -31,6 +31,7 @@
 #include <hector_exploration_planner/hector_exploration_planner.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
+#include "tf2_ros/buffer.h"
 
 class SimpleExplorationPlanner
 {
@@ -39,7 +40,7 @@ public:
   {
     ros::NodeHandle nh;
 
-    costmap_2d_ros_ = new costmap_2d::Costmap2DROS("global_costmap", tfl_);
+    costmap_2d_ros_ = new costmap_2d::Costmap2DROS("global_costmap", buffer_);
 
     planner_ = new hector_exploration_planner::HectorExplorationPlanner();
     planner_->initialize("hector_exploration_planner",costmap_2d_ros_);
@@ -54,12 +55,10 @@ public:
     {
       ROS_INFO("Exploration Service called");
 
-      tf::Stamped<tf::Pose> robot_pose_tf;
-      costmap_2d_ros_->getRobotPose(robot_pose_tf);
+      geometry_msgs::PoseStamped robot_pose;
+      costmap_2d_ros_->getRobotPose(robot_pose);
 
-      geometry_msgs::PoseStamped pose;
-      tf::poseStampedTFToMsg(robot_pose_tf, pose);
-      planner_->doExploration(pose, res.trajectory.poses);
+      planner_->doExploration(robot_pose, res.trajectory.poses);
       res.trajectory.header.frame_id = "map";
       res.trajectory.header.stamp = ros::Time::now();
 
@@ -76,7 +75,7 @@ protected:
   ros::ServiceServer exploration_plan_service_server_;
   ros::Publisher exploration_plan_pub_;
   costmap_2d::Costmap2DROS* costmap_2d_ros_;
-  tf::TransformListener tfl_;
+  tf2_ros::Buffer buffer_;
 
 };
 
