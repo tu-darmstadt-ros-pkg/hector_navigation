@@ -117,7 +117,7 @@ namespace pose_follower {
 
   bool HectorPathFollower::computeVelocityCommands(geometry_msgs::Twist& cmd_vel){
 
-    if (global_plan_.size() == 0)
+    if (global_plan_.empty())
       return false;
 
     //get the current pose of the robot in the fixed frame
@@ -240,13 +240,13 @@ namespace pose_follower {
 
     //in the case that we're not rotating to our goal position and we have a non-holonomic robot
     //we'll need to command a rotational velocity that will help us reach our desired heading
-    
+
     //we want to compute a goal based on the heading difference between our pose and the target
-    double yaw_diff = headingDiff(pose1.getOrigin().x(), pose1.getOrigin().y(), 
+    double yaw_diff = headingDiff(pose1.getOrigin().x(), pose1.getOrigin().y(),
         pose2.getOrigin().x(), pose2.getOrigin().y(), tf::getYaw(pose2.getRotation()));
 
     //we'll also check if we can move more effectively backwards
-    double neg_yaw_diff = headingDiff(pose1.getOrigin().x(), pose1.getOrigin().y(), 
+    double neg_yaw_diff = headingDiff(pose1.getOrigin().x(), pose1.getOrigin().y(),
         pose2.getOrigin().x(), pose2.getOrigin().y(), M_PI + tf::getYaw(pose2.getRotation()));
 
     //check if its faster to just back up
@@ -275,14 +275,14 @@ namespace pose_follower {
     res.linear.x *= K_trans_;
     if(!holonomic_)
       res.linear.y = 0.0;
-    else    
+    else
       res.linear.y *= K_trans_;
     res.angular.z *= K_rot_;
 
     //make sure to bound things by our velocity limits
     double lin_overshoot = sqrt(res.linear.x * res.linear.x + res.linear.y * res.linear.y) / max_vel_lin_;
     double lin_undershoot = min_vel_lin_ / sqrt(res.linear.x * res.linear.x + res.linear.y * res.linear.y);
-    if (lin_overshoot > 1.0) 
+    if (lin_overshoot > 1.0)
     {
       res.linear.x /= lin_overshoot;
       res.linear.y /= lin_overshoot;
@@ -317,15 +317,15 @@ namespace pose_follower {
     transformed_plan.clear();
 
     try{
-      if (!global_plan.size() > 0)
+      if (global_plan_.empty())
       {
         ROS_ERROR("Received plan with zero length");
         return false;
       }
 
       tf::StampedTransform transform;
-      tf.lookupTransform(global_frame, ros::Time(), 
-          plan_pose.header.frame_id, plan_pose.header.stamp, 
+      tf.lookupTransform(global_frame, ros::Time(),
+          plan_pose.header.frame_id, plan_pose.header.stamp,
           plan_pose.header.frame_id, transform);
 
       tf::Stamped<tf::Pose> tf_pose;

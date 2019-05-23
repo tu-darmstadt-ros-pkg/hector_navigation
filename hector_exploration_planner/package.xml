@@ -4,7 +4,7 @@
   <version>0.0.0</version>
   <description>hector_exploration_planner is a planner that can both plan paths to goal points and generate goals to explore unknown environments</description>
 
-  <!-- One maintainer tag required, multiple allowed, one person per tag --> 
+  <!-- One maintainer tag required, multiple allowed, one person per tag -->
   <!-- Example:  -->
   <!-- <maintainer email="jane.doe@example.com">Jane Doe</maintainer> -->
   <maintainer email="kohlbrecher@sim.tu-darmstadt.de">Stefan Kohlbrecher</maintainer>
@@ -39,7 +39,7 @@
   <!-- Use test_depend for packages you need only for testing: -->
   <!--   <test_depend>gtest</test_depend> -->
   <buildtool_depend>catkin</buildtool_depend>
-  <build_depend>cmake_modules</build_depend>  
+  <build_depend>cmake_modules</build_depend>
   <build_depend>costmap_2d</build_depend>
   <build_depend>dynamic_reconfigure</build_depend>
   <build_depend>geometry_msgs</build_depend>
@@ -70,7 +70,6 @@
     <!-- Other tools can request additional information be placed here -->
 
     <nav_core plugin="${prefix}/hector_exploration_base_global_planner_plugin.xml" />
-    <cpp cflags="-I${prefix}/include" lflags="-L${prefix}/lib -Wl,-rpath,${prefix}/lib -lhector_exploration_planner"/>
 
   </export>
 </package>

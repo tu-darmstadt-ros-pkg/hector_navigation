@@ -117,14 +117,15 @@ include_directories(
 #   src/${PROJECT_NAME}/hector_exploration_planner.cpp
 # )
 add_library(${PROJECT_NAME} src/hector_exploration_planner.cpp)
+target_link_libraries(${PROJECT_NAME} ${catkin_LIBRARIES})
 add_library(hector_exploration_base_global_planner_plugin src/hector_exploration_base_global_planner_plugin.cpp)
+target_link_libraries(hector_exploration_base_global_planner_plugin ${catkin_LIBRARIES})
 
 ## Declare a cpp executable
 # add_executable(hector_exploration_planner_node src/hector_exploration_planner_node.cpp)
 
 ## Add cmake target dependencies of the executable/library
 ## as an example, message headers may need to be generated before nodes
-# add_dependencies(hector_exploration_planner_node hector_exploration_planner_generate_messages_cpp)
 add_dependencies(${PROJECT_NAME} ${PROJECT_NAME}_gencfg)
 add_dependencies(hector_exploration_base_global_planner_plugin ${PROJECT_NAME}_gencfg)
 
@@ -150,18 +151,18 @@ target_link_libraries(hector_exploration_base_global_planner_plugin ${PROJECT_NA
 # )
 
 ## Mark executables and/or libraries for installation
-# install(TARGETS hector_exploration_base_global_planner_plugin ${PROJECT_NAME}
-#   ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
-#   RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
-# )
+install(TARGETS hector_exploration_base_global_planner_plugin ${PROJECT_NAME}
+ ARCHIVE DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+ LIBRARY DESTINATION ${CATKIN_PACKAGE_LIB_DESTINATION}
+ RUNTIME DESTINATION ${CATKIN_PACKAGE_BIN_DESTINATION}
+)
 
 ## Mark cpp header files for installation
-# install(DIRECTORY include/${PROJECT_NAME}/
-#   DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
-#   FILES_MATCHING PATTERN "*.h"
-#   PATTERN ".svn" EXCLUDE
-# )
+install(DIRECTORY include/${PROJECT_NAME}/
+ DESTINATION ${CATKIN_PACKAGE_INCLUDE_DESTINATION}
+ FILES_MATCHING PATTERN "*.h"
+ PATTERN ".svn" EXCLUDE
+)
 
 ## Mark other files for installation (e.g. launch and bag files, etc.)
 # install(FILES
