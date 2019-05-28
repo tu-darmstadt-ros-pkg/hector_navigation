@@ -82,7 +82,7 @@ catkin_package(
 #  INCLUDE_DIRS include
 #  LIBRARIES hector_driving_aid_markers
   CATKIN_DEPENDS roscpp visualization_msgs
-  DEPENDS system_lib
+#  DEPENDS system_lib
 )
 
 ###########
