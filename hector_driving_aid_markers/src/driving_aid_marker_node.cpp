@@ -14,8 +14,9 @@ public:
     pnh.param("right_side_y_outer", p_right_side_y_outer_, 0.0);
     pnh.param("right_side_y_inner", p_right_side_y_inner_, 0.0);
     pnh.param("offset_z", p_offset_z_, -0.112-0.07);
+    pnh.param("publish_period", p_publish_period_, 0.1);
 
-    pub_timer_ = pnh.createTimer(ros::Duration(0.1), &DrivingAidMarker::pubTimerCallback, this, false);
+    pub_timer_ = pnh.createTimer(ros::Duration(p_publish_period_), &DrivingAidMarker::pubTimerCallback, this, false);
     marker_pub_ = pnh.advertise<visualization_msgs::MarkerArray>("driving_aid", 1,false);
 
     visualization_msgs::Marker marker;
@@ -85,6 +86,7 @@ protected:
   double p_right_side_y_outer_;
   double p_right_side_y_inner_;
   double p_offset_z_;
+  double p_publish_period_;
 
   ros::Publisher marker_pub_;
   ros::Timer pub_timer_;

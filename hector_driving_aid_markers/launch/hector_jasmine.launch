@@ -8,6 +8,7 @@
     <param name="right_side_y_outer" value="-0.211"/>
     <param name="right_side_y_inner" value="-0.13"/>
     <param name="offset_z" value="-0.075"/>
+    <param name="publish_period" value="0.01"/>
   </node>
   
 </launch>
