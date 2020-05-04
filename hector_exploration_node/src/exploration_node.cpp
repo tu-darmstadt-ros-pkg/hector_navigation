@@ -59,7 +59,7 @@ public:
       costmap_2d_ros_->getRobotPose(robot_pose);
 
       planner_->doExploration(robot_pose, res.trajectory.poses);
-      res.trajectory.header.frame_id = "map";
+      res.trajectory.header.frame_id = costmap_2d_ros_->getGlobalFrameID();
       res.trajectory.header.stamp = ros::Time::now();
 
       if (exploration_plan_pub_.getNumSubscribers() > 0)
