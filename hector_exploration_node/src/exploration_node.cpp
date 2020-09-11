@@ -39,7 +39,7 @@ public:
   SimpleExplorationPlanner()
   {
     ros::NodeHandle nh;
-
+    buffer_.setUsingDedicatedThread(true)
     costmap_2d_ros_ = new costmap_2d::Costmap2DROS("global_costmap", buffer_);
 
     planner_ = new hector_exploration_planner::HectorExplorationPlanner();
