@@ -31,25 +31,23 @@
 #include <hector_exploration_planner/hector_exploration_planner.h>
 #include <costmap_2d/costmap_2d_ros.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
-#include "tf2_ros/buffer.h"
+#include <tf2_ros/buffer.h>
 #include <tf2_ros/transform_listener.h>
 
 class SimpleExplorationPlanner
 {
 public:
-  SimpleExplorationPlanner()
+  SimpleExplorationPlanner() : listener_(buffer_)
   {
-    ros::NodeHandle nh;
     buffer_.setUsingDedicatedThread(true);
-    tf2_ros::TransformListener tfListener(buffer_);
     costmap_2d_ros_ = new costmap_2d::Costmap2DROS("global_costmap", buffer_);
 
     planner_ = new hector_exploration_planner::HectorExplorationPlanner();
     planner_->initialize("hector_exploration_planner",costmap_2d_ros_);
 
-    exploration_plan_service_server_ = nh.advertiseService("get_exploration_path", &SimpleExplorationPlanner::explorationServiceCallback, this);
+    exploration_plan_service_server_ = nh_.advertiseService("get_exploration_path", &SimpleExplorationPlanner::explorationServiceCallback, this);
 
-    exploration_plan_pub_ = nh.advertise<nav_msgs::Path>("exploration_path",2);
+    exploration_plan_pub_ = nh_.advertise<nav_msgs::Path>("exploration_path",2);
   }
 
   bool explorationServiceCallback(hector_nav_msgs::GetRobotTrajectory::Request  &req,
@@ -74,11 +72,12 @@ public:
 
 protected:
   hector_exploration_planner::HectorExplorationPlanner* planner_;
+  ros::NodeHandle nh_;
   ros::ServiceServer exploration_plan_service_server_;
   ros::Publisher exploration_plan_pub_;
   costmap_2d::Costmap2DROS* costmap_2d_ros_;
   tf2_ros::Buffer buffer_;
-
+  tf2_ros::TransformListener listener_;
 };
 
 int main(int argc, char **argv) {
