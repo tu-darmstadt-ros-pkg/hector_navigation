@@ -32,6 +32,7 @@
 #include <costmap_2d/costmap_2d_ros.h>
 #include <hector_nav_msgs/GetRobotTrajectory.h>
 #include "tf2_ros/buffer.h"
+#include <tf2_ros/transform_listener.h>
 
 class SimpleExplorationPlanner
 {
@@ -40,6 +41,7 @@ public:
   {
     ros::NodeHandle nh;
     buffer_.setUsingDedicatedThread(true);
+    tf2_ros::TransformListener tfListener(buffer_);
     costmap_2d_ros_ = new costmap_2d::Costmap2DROS("global_costmap", buffer_);
 
     planner_ = new hector_exploration_planner::HectorExplorationPlanner();
