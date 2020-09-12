@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.0.2)
-project(hector_gps_calibration)
+project(hector_gps_calibration VERSION 0.0.0)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
 add_compile_options(-std=c++11)
@@ -18,11 +18,10 @@ find_package(catkin REQUIRED COMPONENTS
   tf2_eigen
   tf2_ros
   urdf
-  ceres_catkin
 )
 
 ## System dependencies are found with CMake's conventions
-#find_package(Ceres REQUIRED)
+find_package(Ceres REQUIRED)
 find_package(Eigen3 REQUIRED)
 find_package(orocos_kdl REQUIRED)
 
