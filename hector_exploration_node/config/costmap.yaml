@@ -14,8 +14,8 @@ global_costmap:
   inscribed_radius: 0.3
   circumscribed_radius: 0.32
 
-  global_frame: /map
-  robot_base_frame: /base_link
+  global_frame: map
+  robot_base_frame: base_link
   update_frequency: 0.5
   publish_frequency: 0.1
   static_map: true
