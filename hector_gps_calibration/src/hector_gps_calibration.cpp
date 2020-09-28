@@ -58,7 +58,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
   msg.header.stamp = ros::Time::now(); //Ugly hack to work around timestamp issues specific to our robot
 
   if(msg.pose.covariance[0] > max_covariance_ ) {
-    //ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
+    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
 
