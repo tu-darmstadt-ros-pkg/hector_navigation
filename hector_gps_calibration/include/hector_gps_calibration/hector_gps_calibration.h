@@ -35,6 +35,7 @@
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Empty.h>
+#include <std_msgs/String.h>
 #include "Eigen/Core"
 
 
@@ -48,6 +49,7 @@ private:
 
   void navSatCallback(nav_msgs::Odometry msg);
   void optimizeCallback(std_msgs::Empty msg);
+  void sysCommandCallback(const std_msgs::String::ConstPtr& msg);
   void optimize();
   void publishTF(const ros::WallTimerEvent &unused_timer_event);
 
@@ -62,6 +64,7 @@ private:
 
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;
+  ros::Subscriber syscommand_sub_;
 
   ros::Publisher nav_sat_fix_pub_;
 
@@ -69,10 +72,12 @@ private:
 
   std::array<double, 2> translation_;
   double rotation_;
-
+  std::array<double, 2> initial_translation_;
+  double initial_rotation_;
   bool write_debug_file_;
   double max_covariance_;
   double min_pose_distance_;
+  std::string gnss_sensor_frame_;
 
 };
 

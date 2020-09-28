@@ -12,43 +12,24 @@
 GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   : tf_listener(tf_buffer),
     translation_{{0,0}},
-    rotation_(0.0)
+    initial_translation_{{0,0}},
+    rotation_(0.0),
+    initial_rotation_(0.0)
 {
-  nh.param<double>("translation_x", translation_[0], 0.0);
-  nh.param<double>("translation_y", translation_[1], 0.0);
-
-  nh.param<double>("orientation", rotation_, 0.0);
-
+  nh.param<double>("translation_x", initial_translation_[0], 0.0);
+  nh.param<double>("translation_y", initial_translation_[1], 0.0);
+  nh.param<double>("orientation", initial_rotation_, 0.0);
   nh.param<bool>("write_debug_file", write_debug_file_, false);
   nh.param<double>("max_covariance", max_covariance_, 10.0);
   nh.param<double>("min_pose_distance", min_pose_distance_, 0.2);
-
-  ROS_INFO("Initial GPS transformation: \n t: %f %f \n r: %f", translation_[0], translation_[1], rotation_);
-
-  nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
-  optimize_sub_ = nh.subscribe("gps/run_optimization", 1, &GPSCalibration::navSatCallback, this);
-
+  nh.param<std::string>("gnss_sensor_frame", gnss_sensor_frame_, "base_link");
+  translation_ = initial_translation_;
+  rotation_ = initial_rotation_;
+  nav_sat_sub_ = nh.subscribe("/odom_gps", 10, &GPSCalibration::navSatCallback, this);
+  optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);
+  syscommand_sub_ = nh.subscribe(
+      "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
   nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
-
-  /*TEST
-    Eigen::Matrix<double, 3, 1> pos_gps(0, 0, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 1, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 2, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 3, 10);
-    gps_poses_.emplace_back(pos_gps);
-
-    Eigen::Matrix<double, 3, 1> pos_world(0.1, 0, 0);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 1, 0.1);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 2, 0);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 3, 0);
-    world_poses_.emplace_back(pos_world);
-    optimize();*/
 
   wall_timers_.push_back(nh.createWallTimer(ros::WallDuration(0.1), &GPSCalibration::publishTF, this));
 }
@@ -65,19 +46,18 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
   geometry_msgs::TransformStamped transformStamped;
   try{
-    transformStamped = tf_buffer.lookupTransform("world", "base_link",
+    transformStamped = tf_buffer.lookupTransform("world", msg.header.frame_id,
                                                  msg.header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
-
     return;
   }
 
   Eigen::Matrix<double, 2, 1> pos_world(transformStamped.transform.translation.x,
                                         transformStamped.transform.translation.y);
   bool redundant_data = false;
-  if(gps_poses_.size() > 0)
+  if(!gps_poses_.empty())
   {
     Eigen::Matrix<double, 2, 1> delta_pose = world_poses_[gps_poses_.size() - 1] - pos_world;
     double pose_distance = std::sqrt(delta_pose.transpose() * delta_pose);
@@ -91,8 +71,9 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
     covariances_.emplace_back(msg.pose.covariance[0]);
   }
 
-  if((world_poses_.size() % 10 == 0) && world_poses_.size() > 0)
+  if((world_poses_.size() % 10 == 0) && !world_poses_.empty()) {
     optimize();
+  }
 
 }
 
@@ -102,13 +83,24 @@ void GPSCalibration::optimizeCallback(std_msgs::Empty msg)
 }
 
 
+void GPSCalibration::sysCommandCallback(const std_msgs::String::ConstPtr& msg) {
+  if (msg->data == "reset_cartographer") {
+    ROS_INFO("Resetting now due to syscommand.");
+    tf_buffer.clear();
+    gps_poses_.clear();
+    world_poses_.clear();
+    covariances_.clear();
+    translation_ = initial_translation_;
+    rotation_ = initial_rotation_;
+    ROS_INFO("Finished reset.");
+  }
+}
+
+
 void GPSCalibration::optimize()
 {
-  int i = 0;
-
   ceres::Problem problem;
-
-  for(i = 0; i < world_poses_.size(); ++i)
+  for(int i = 0; i < world_poses_.size(); ++i)
   {
     problem.AddResidualBlock(
           new ceres::AutoDiffCostFunction<TransformDeltaCostFunctor,
@@ -130,10 +122,11 @@ void GPSCalibration::optimize()
   //  options.minimizer_progress_to_stdout = true;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
+  if(summary.termination_type != ceres::TerminationType::CONVERGENCE) {
     ROS_WARN("%s", summary.FullReport().c_str());
-  ROS_INFO("Translation %f %f", translation_[0], translation_[1]);
-  ROS_INFO("Rotation %f", rotation_);
+    ROS_INFO("Translation %f %f", translation_[0], translation_[1]);
+    ROS_INFO("Rotation %f", rotation_);
+  }
 
   if(write_debug_file_)
   {
@@ -189,7 +182,7 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 
   geometry_msgs::TransformStamped world_navsat_transform;
   try{
-    world_navsat_transform = tf_buffer.lookupTransform("world", "base_link",
+    world_navsat_transform = tf_buffer.lookupTransform("world", gnss_sensor_frame_,
                                                  publish_time, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
@@ -211,7 +204,7 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 
   sensor_msgs::NavSatFix nav_sat_fix;
   nav_sat_fix.header.stamp = publish_time;
-  nav_sat_fix.header.frame_id = "base_link";
+  nav_sat_fix.header.frame_id = gnss_sensor_frame_;
   nav_sat_fix.latitude = geo_point.latitude;
   nav_sat_fix.longitude = geo_point.longitude;
   nav_sat_fix.altitude = 0.0;
