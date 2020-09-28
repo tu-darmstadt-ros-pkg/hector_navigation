@@ -55,8 +55,6 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
-  msg.header.stamp = ros::Time::now(); //Ugly hack to work around timestamp issues specific to our robot
-
   if(msg.pose.covariance[0] > max_covariance_ ) {
     ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
@@ -67,7 +65,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
   geometry_msgs::TransformStamped transformStamped;
   try{
-    transformStamped = tf_buffer.lookupTransform("world", "navsat_link",
+    transformStamped = tf_buffer.lookupTransform("world", "base_link",
                                                  msg.header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
