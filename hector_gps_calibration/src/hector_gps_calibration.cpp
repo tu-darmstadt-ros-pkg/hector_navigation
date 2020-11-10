@@ -5,6 +5,7 @@
 #include <ceres/ceres.h>
 #include <geodesy/utm.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <visualization_msgs/Marker.h>
 
 #include <iostream>
 #include <fstream>
@@ -30,6 +31,7 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   syscommand_sub_ = nh.subscribe(
       "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
   nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
+  marker_pub_ = nh.advertise<visualization_msgs::Marker>("/gps_calibration/marker", 5);
 
   wall_timers_.push_back(nh.createWallTimer(ros::WallDuration(0.1), &GPSCalibration::publishTF, this));
 }
@@ -40,10 +42,8 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
     ROS_DEBUG("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
-
   Eigen::Matrix<double, 2, 1> pos_gps(msg.pose.pose.position.x,
                                       msg.pose.pose.position.y);
-
   geometry_msgs::TransformStamped transformStamped;
   try{
     transformStamped = tf_buffer.lookupTransform("world", msg.header.frame_id,
@@ -207,5 +207,63 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   nav_sat_fix.longitude = geo_point.longitude;
   nav_sat_fix.altitude = 0.0;
   nav_sat_fix_pub_.publish(nav_sat_fix);
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "/world";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "residuals";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::LINE_LIST;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.position.x = 0.0;
+  marker.pose.position.y = 0.0;
+  marker.pose.position.z = 0.0;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = 0.1;
+  marker.color.r = 1.0;
+  marker.color.a = 1.0;
+  marker.frame_locked = true;
+
+  const Rigid3d transform(
+      Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], (0.0)),
+      Eigen::Quaterniond(ceres::cos(rotation_/(2.0)), (0.0), (0.0),
+                           ceres::sin(rotation_/(2.0))));
+  const Rigid3d transform_inv = transform.inverse();
+
+  for(int pose_idx = 0; pose_idx < gps_poses_.size(); ++pose_idx) {
+    geometry_msgs::Point p1, p2;
+    Eigen::Vector3d p1_gps = {gps_poses_[pose_idx][0], gps_poses_[pose_idx][1], 0.0};
+    Eigen::Vector3d p1_world = transform_inv * p1_gps;
+    p1.x = p1_world[0];
+    p1.y = p1_world[1];
+    p1.z = 0;
+    p2.x = world_poses_[pose_idx][0];
+    p2.y = world_poses_[pose_idx][1];
+    p2.z = 0;
+    marker.points.push_back(p1);
+    marker.points.push_back(p2);
+
+    std_msgs::ColorRGBA color;
+    const float relative_covariance = covariances_[pose_idx]/max_covariance_;
+    const float color_ratio = relative_covariance > 0.f ? std::sqrt(covariances_[pose_idx]/max_covariance_) : 1.0;
+    if(color_ratio < 0.5f) {
+      color.r = 2.0 * color_ratio;
+      color.g = 1.0;
+      color.b = 0.0;
+      color.a = 1.0;
+    }
+    else {
+      color.r = 1.0;
+      color.g = 2.0  - 2.0 * color_ratio;
+      color.b = 0.0;
+      color.a = 1.0;
+    }
+    marker.colors.push_back(color);
+    marker.colors.push_back(color);
+  }
+  marker_pub_.publish(marker);
 
 }

@@ -67,6 +67,7 @@ private:
   ros::Subscriber syscommand_sub_;
 
   ros::Publisher nav_sat_fix_pub_;
+  ros::Publisher marker_pub_;
 
   std::vector<ros::WallTimer> wall_timers_;
 
