@@ -25,7 +25,7 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   nh.param<std::string>("gnss_sensor_frame", gnss_sensor_frame_, "base_link");
   translation_ = initial_translation_;
   rotation_ = initial_rotation_;
-  nav_sat_sub_ = nh.subscribe("/odom_gps", 10, &GPSCalibration::navSatCallback, this);
+  nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
   optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);
   syscommand_sub_ = nh.subscribe(
       "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
@@ -37,7 +37,7 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
   if(msg.pose.covariance[0] > max_covariance_ ) {
-    ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
+    ROS_DEBUG("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
 
@@ -50,7 +50,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
                                                  msg.header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
+    ROS_WARN("Dropping GPS data. %s",ex.what());
     return;
   }
 
@@ -61,17 +61,19 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
   {
     Eigen::Matrix<double, 2, 1> delta_pose = world_poses_[gps_poses_.size() - 1] - pos_world;
     double pose_distance = std::sqrt(delta_pose.transpose() * delta_pose);
-    if(pose_distance < min_pose_distance_)
-      redundant_data = true;
-  }
-  if(!redundant_data)
-  {
-    gps_poses_.emplace_back(pos_gps);
-    world_poses_.emplace_back(pos_world);
-    covariances_.emplace_back(msg.pose.covariance[0]);
+    if(pose_distance < min_pose_distance_) {        
+      ROS_DEBUG("Dropping GPS data. Motion limit is not reached. Distance: %f < %f", pose_distance, min_pose_distance_);
+      return;
+    }
   }
 
-  if((world_poses_.size() % 10 == 0) && !world_poses_.empty()) {
+  gps_poses_.emplace_back(pos_gps);
+  world_poses_.emplace_back(pos_world);
+  covariances_.emplace_back(msg.pose.covariance[0]);
+  ROS_DEBUG("Added observation.");
+  
+
+  if(world_poses_.size() % 5 == 0) {
     optimize();
   }
 
@@ -153,20 +155,6 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 {
   ros::Time publish_time = ros::Time::now();
 
-  geometry_msgs::TransformStamped utm_world_transform;
-  utm_world_transform.header.stamp = publish_time;
-  utm_world_transform.header.frame_id = "utm";
-  utm_world_transform.child_frame_id = "world";
-  utm_world_transform.transform.translation.x = translation_[0];
-  utm_world_transform.transform.translation.y = translation_[1];
-  utm_world_transform.transform.translation.z = 0;
-  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
-  utm_world_transform.transform.rotation.x = 0.0;
-  utm_world_transform.transform.rotation.y = 0.0;
-  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
-  //tf_broadcaster.sendTransform(utm_world_transform);
-
-
   geometry_msgs::TransformStamped worldenu_world_transform;
   worldenu_world_transform.header.stamp = publish_time;
   worldenu_world_transform.header.frame_id = "world_enu";
@@ -190,7 +178,17 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
     return;
   }
 
-
+  geometry_msgs::TransformStamped utm_world_transform;
+  utm_world_transform.header.stamp = publish_time;
+  utm_world_transform.header.frame_id = "utm";
+  utm_world_transform.child_frame_id = "world";
+  utm_world_transform.transform.translation.x = translation_[0];
+  utm_world_transform.transform.translation.y = translation_[1];
+  utm_world_transform.transform.translation.z = 0;
+  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
+  utm_world_transform.transform.rotation.x = 0.0;
+  utm_world_transform.transform.rotation.y = 0.0;
+  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
   geometry_msgs::TransformStamped utm_navsat_transform;
   tf2::doTransform(world_navsat_transform, utm_navsat_transform, utm_world_transform);
 
