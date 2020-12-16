@@ -43,7 +43,6 @@
   <build_depend>ceres_catkin</build_depend>
   <build_depend>geodesy</build_depend>
   <build_depend>geometry_msgs</build_depend>
-  <build_depend>orocos_kdl</build_depend>
   <build_depend>roscpp</build_depend>
   <build_depend>rospy</build_depend>
   <build_depend>sensor_msgs</build_depend>
@@ -56,7 +55,6 @@
   <run_depend>ceres_catkin</run_depend>
   <run_depend>geodesy</run_depend>
   <run_depend>geometry_msgs</run_depend>
-  <run_depend>orocos_kdl</run_depend>
   <run_depend>roscpp</run_depend>
   <run_depend>rospy</run_depend>
   <run_depend>sensor_msgs</run_depend>
