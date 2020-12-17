@@ -5,6 +5,7 @@
 #include <ceres/ceres.h>
 #include <geodesy/utm.h>
 #include <sensor_msgs/NavSatFix.h>
+#include <visualization_msgs/Marker.h>
 
 #include <iostream>
 #include <fstream>
@@ -12,89 +13,69 @@
 GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   : tf_listener(tf_buffer),
     translation_{{0,0}},
-    rotation_(0.0)
+    initial_translation_{{0,0}},
+    rotation_(0.0),
+    initial_rotation_(0.0)
 {
-  nh.param<double>("translation_x", translation_[0], 0.0);
-  nh.param<double>("translation_y", translation_[1], 0.0);
-
-  nh.param<double>("orientation", rotation_, 0.0);
-
+  nh.param<double>("translation_x", initial_translation_[0], 0.0);
+  nh.param<double>("translation_y", initial_translation_[1], 0.0);
+  nh.param<double>("orientation", initial_rotation_, 0.0);
   nh.param<bool>("write_debug_file", write_debug_file_, false);
   nh.param<double>("max_covariance", max_covariance_, 10.0);
   nh.param<double>("min_pose_distance", min_pose_distance_, 0.2);
-
-  ROS_INFO("Initial GPS transformation: \n t: %f %f \n r: %f", translation_[0], translation_[1], rotation_);
-
+  nh.param<std::string>("gnss_sensor_frame", gnss_sensor_frame_, "base_link");
+  translation_ = initial_translation_;
+  rotation_ = initial_rotation_;
   nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
-  optimize_sub_ = nh.subscribe("gps/run_optimization", 1, &GPSCalibration::navSatCallback, this);
-
+  optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);
+  syscommand_sub_ = nh.subscribe(
+      "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
   nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
-
-  /*TEST
-    Eigen::Matrix<double, 3, 1> pos_gps(0, 0, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 1, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 2, 10);
-    gps_poses_.emplace_back(pos_gps);
-    pos_gps = Eigen::Matrix<double, 3, 1>(0, 3, 10);
-    gps_poses_.emplace_back(pos_gps);
-
-    Eigen::Matrix<double, 3, 1> pos_world(0.1, 0, 0);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 1, 0.1);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 2, 0);
-    world_poses_.emplace_back(pos_world);
-    pos_world = Eigen::Matrix<double, 3, 1>(0, 3, 0);
-    world_poses_.emplace_back(pos_world);
-    optimize();*/
+  marker_pub_ = nh.advertise<visualization_msgs::Marker>("/gps_calibration/marker", 5);
 
   wall_timers_.push_back(nh.createWallTimer(ros::WallDuration(0.1), &GPSCalibration::publishTF, this));
 }
 
 void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 {
-  msg.header.stamp = ros::Time::now(); //Ugly hack to work around timestamp issues specific to our robot
-
   if(msg.pose.covariance[0] > max_covariance_ ) {
-    //ROS_WARN("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
+    ROS_DEBUG("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
     return;
   }
-
   Eigen::Matrix<double, 2, 1> pos_gps(msg.pose.pose.position.x,
                                       msg.pose.pose.position.y);
-
   geometry_msgs::TransformStamped transformStamped;
   try{
-    transformStamped = tf_buffer.lookupTransform("world", "navsat_link",
+    transformStamped = tf_buffer.lookupTransform("world", msg.header.frame_id,
                                                  msg.header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
-    ROS_WARN("%s",ex.what());
-
+    ROS_WARN("Dropping GPS data. %s",ex.what());
     return;
   }
 
   Eigen::Matrix<double, 2, 1> pos_world(transformStamped.transform.translation.x,
                                         transformStamped.transform.translation.y);
   bool redundant_data = false;
-  if(gps_poses_.size() > 0)
+  if(!gps_poses_.empty())
   {
     Eigen::Matrix<double, 2, 1> delta_pose = world_poses_[gps_poses_.size() - 1] - pos_world;
     double pose_distance = std::sqrt(delta_pose.transpose() * delta_pose);
-    if(pose_distance < min_pose_distance_)
-      redundant_data = true;
-  }
-  if(!redundant_data)
-  {
-    gps_poses_.emplace_back(pos_gps);
-    world_poses_.emplace_back(pos_world);
-    covariances_.emplace_back(msg.pose.covariance[0]);
+    if(pose_distance < min_pose_distance_) {        
+      ROS_DEBUG("Dropping GPS data. Motion limit is not reached. Distance: %f < %f", pose_distance, min_pose_distance_);
+      return;
+    }
   }
 
-  if((world_poses_.size() % 10 == 0) && world_poses_.size() > 0)
+  gps_poses_.emplace_back(pos_gps);
+  world_poses_.emplace_back(pos_world);
+  covariances_.emplace_back(msg.pose.covariance[0]);
+  ROS_DEBUG("Added observation.");
+  
+
+  if(world_poses_.size() % 5 == 0) {
     optimize();
+  }
 
 }
 
@@ -104,13 +85,24 @@ void GPSCalibration::optimizeCallback(std_msgs::Empty msg)
 }
 
 
+void GPSCalibration::sysCommandCallback(const std_msgs::String::ConstPtr& msg) {
+  if (msg->data == "reset_cartographer") {
+    ROS_INFO("Resetting now due to syscommand.");
+    tf_buffer.clear();
+    gps_poses_.clear();
+    world_poses_.clear();
+    covariances_.clear();
+    translation_ = initial_translation_;
+    rotation_ = initial_rotation_;
+    ROS_INFO("Finished reset.");
+  }
+}
+
+
 void GPSCalibration::optimize()
 {
-  int i = 0;
-
   ceres::Problem problem;
-
-  for(i = 0; i < world_poses_.size(); ++i)
+  for(int i = 0; i < world_poses_.size(); ++i)
   {
     problem.AddResidualBlock(
           new ceres::AutoDiffCostFunction<TransformDeltaCostFunctor,
@@ -132,10 +124,11 @@ void GPSCalibration::optimize()
   //  options.minimizer_progress_to_stdout = true;
   ceres::Solver::Summary summary;
   ceres::Solve(options, &problem, &summary);
-  if(summary.termination_type != ceres::TerminationType::CONVERGENCE)
+  if(summary.termination_type != ceres::TerminationType::CONVERGENCE) {
     ROS_WARN("%s", summary.FullReport().c_str());
-  ROS_INFO("Translation %f %f", translation_[0], translation_[1]);
-  ROS_INFO("Rotation %f", rotation_);
+    ROS_INFO("Translation %f %f", translation_[0], translation_[1]);
+    ROS_INFO("Rotation %f", rotation_);
+  }
 
   if(write_debug_file_)
   {
@@ -162,20 +155,6 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 {
   ros::Time publish_time = ros::Time::now();
 
-  geometry_msgs::TransformStamped utm_world_transform;
-  utm_world_transform.header.stamp = publish_time;
-  utm_world_transform.header.frame_id = "utm";
-  utm_world_transform.child_frame_id = "world";
-  utm_world_transform.transform.translation.x = translation_[0];
-  utm_world_transform.transform.translation.y = translation_[1];
-  utm_world_transform.transform.translation.z = 0;
-  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
-  utm_world_transform.transform.rotation.x = 0.0;
-  utm_world_transform.transform.rotation.y = 0.0;
-  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
-  //tf_broadcaster.sendTransform(utm_world_transform);
-
-
   geometry_msgs::TransformStamped worldenu_world_transform;
   worldenu_world_transform.header.stamp = publish_time;
   worldenu_world_transform.header.frame_id = "world_enu";
@@ -191,7 +170,7 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 
   geometry_msgs::TransformStamped world_navsat_transform;
   try{
-    world_navsat_transform = tf_buffer.lookupTransform("world", "base_link",
+    world_navsat_transform = tf_buffer.lookupTransform("world", gnss_sensor_frame_,
                                                  publish_time, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
@@ -199,7 +178,17 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
     return;
   }
 
-
+  geometry_msgs::TransformStamped utm_world_transform;
+  utm_world_transform.header.stamp = publish_time;
+  utm_world_transform.header.frame_id = "utm";
+  utm_world_transform.child_frame_id = "world";
+  utm_world_transform.transform.translation.x = translation_[0];
+  utm_world_transform.transform.translation.y = translation_[1];
+  utm_world_transform.transform.translation.z = 0;
+  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
+  utm_world_transform.transform.rotation.x = 0.0;
+  utm_world_transform.transform.rotation.y = 0.0;
+  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
   geometry_msgs::TransformStamped utm_navsat_transform;
   tf2::doTransform(world_navsat_transform, utm_navsat_transform, utm_world_transform);
 
@@ -213,10 +202,68 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 
   sensor_msgs::NavSatFix nav_sat_fix;
   nav_sat_fix.header.stamp = publish_time;
-  nav_sat_fix.header.frame_id = "base_link";
+  nav_sat_fix.header.frame_id = gnss_sensor_frame_;
   nav_sat_fix.latitude = geo_point.latitude;
   nav_sat_fix.longitude = geo_point.longitude;
   nav_sat_fix.altitude = 0.0;
   nav_sat_fix_pub_.publish(nav_sat_fix);
+
+  visualization_msgs::Marker marker;
+  marker.header.frame_id = "/world";
+  marker.header.stamp = ros::Time::now();
+  marker.ns = "residuals";
+  marker.id = 0;
+  marker.type = visualization_msgs::Marker::LINE_LIST;
+  marker.action = visualization_msgs::Marker::ADD;
+  marker.pose.position.x = 0.0;
+  marker.pose.position.y = 0.0;
+  marker.pose.position.z = 0.0;
+  marker.pose.orientation.x = 0.0;
+  marker.pose.orientation.y = 0.0;
+  marker.pose.orientation.z = 0.0;
+  marker.pose.orientation.w = 1.0;
+  marker.scale.x = 0.1;
+  marker.color.r = 1.0;
+  marker.color.a = 1.0;
+  marker.frame_locked = true;
+
+  const Rigid3d transform(
+      Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], (0.0)),
+      Eigen::Quaterniond(ceres::cos(rotation_/(2.0)), (0.0), (0.0),
+                           ceres::sin(rotation_/(2.0))));
+  const Rigid3d transform_inv = transform.inverse();
+
+  for(int pose_idx = 0; pose_idx < gps_poses_.size(); ++pose_idx) {
+    geometry_msgs::Point p1, p2;
+    Eigen::Vector3d p1_gps = {gps_poses_[pose_idx][0], gps_poses_[pose_idx][1], 0.0};
+    Eigen::Vector3d p1_world = transform_inv * p1_gps;
+    p1.x = p1_world[0];
+    p1.y = p1_world[1];
+    p1.z = 0;
+    p2.x = world_poses_[pose_idx][0];
+    p2.y = world_poses_[pose_idx][1];
+    p2.z = 0;
+    marker.points.push_back(p1);
+    marker.points.push_back(p2);
+
+    std_msgs::ColorRGBA color;
+    const float relative_covariance = covariances_[pose_idx]/max_covariance_;
+    const float color_ratio = relative_covariance > 0.f ? std::sqrt(covariances_[pose_idx]/max_covariance_) : 1.0;
+    if(color_ratio < 0.5f) {
+      color.r = 2.0 * color_ratio;
+      color.g = 1.0;
+      color.b = 0.0;
+      color.a = 1.0;
+    }
+    else {
+      color.r = 1.0;
+      color.g = 2.0  - 2.0 * color_ratio;
+      color.b = 0.0;
+      color.a = 1.0;
+    }
+    marker.colors.push_back(color);
+    marker.colors.push_back(color);
+  }
+  marker_pub_.publish(marker);
 
 }
