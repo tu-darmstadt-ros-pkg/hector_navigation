@@ -1,0 +1,7 @@
+<?xml version="1.0"?>
+<launch> 
+  <node pkg="tf" type="static_transform_publisher" name="world_base_link_broadcaster" args="3 0 0  0 0 0 1 world base_link 100" />
+</launch>
+
+
+

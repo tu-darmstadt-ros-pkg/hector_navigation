@@ -12,9 +12,9 @@
 
 GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   : tf_listener(tf_buffer),
-    translation_{{0,0}},
+    world_to_utm_translation_{{0, 0}},
     initial_translation_{{0,0}},
-    rotation_(0.0),
+    world_to_utm_rotation_(0.0),
     initial_rotation_(0.0)
 {
   nh.param<double>("translation_x", initial_translation_[0], 0.0);
@@ -24,30 +24,133 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   nh.param<double>("max_covariance", max_covariance_, 10.0);
   nh.param<double>("min_pose_distance", min_pose_distance_, 0.2);
   nh.param<std::string>("gnss_sensor_frame", gnss_sensor_frame_, "base_link");
-  translation_ = initial_translation_;
-  rotation_ = initial_rotation_;
+  world_to_utm_translation_ = initial_translation_;
+  world_to_utm_rotation_ = initial_rotation_;
   nav_sat_sub_ = nh.subscribe("/odom_gps", 1, &GPSCalibration::navSatCallback, this);
   optimize_sub_ = nh.subscribe("gps/run_optimization", 10, &GPSCalibration::navSatCallback, this);
   syscommand_sub_ = nh.subscribe(
       "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
+  initialpose_sub_ = nh.subscribe(
+      "initialpose", 10, &GPSCalibration::initialposeCallback, this);
   nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
   marker_pub_ = nh.advertise<visualization_msgs::Marker>("/gps_calibration/marker", 5);
 
   wall_timers_.push_back(nh.createWallTimer(ros::WallDuration(0.1), &GPSCalibration::publishTF, this));
 }
 
-void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
-{
-  if(msg.pose.covariance[0] > max_covariance_ ) {
-    ROS_DEBUG("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg.pose.covariance[0], max_covariance_);
+
+void GPSCalibration::initialposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
+
+  geometry_msgs::TransformStamped transform_sensor_world;
+  geometry_msgs::TransformStamped transform_rviz_sensor;
+  geometry_msgs::TransformStamped transform_sensor_rviz;
+  geometry_msgs::TransformStamped transform_world_rviz;
+  try{
+    transform_sensor_world = tf_buffer.lookupTransform(gnss_sensor_frame_, "world", ros::Time(0));
+    transform_rviz_sensor = tf_buffer.lookupTransform(msg->header.frame_id, gnss_sensor_frame_, ros::Time(0));
+    transform_sensor_rviz = tf_buffer.lookupTransform(gnss_sensor_frame_, msg->header.frame_id, ros::Time(0));
+    transform_world_rviz = tf_buffer.lookupTransform("world", msg->header.frame_id, ros::Time(0));
+  }
+  catch (tf2::TransformException &ex) {
+    ROS_WARN("%s",ex.what());
     return;
   }
-  Eigen::Matrix<double, 2, 1> pos_gps(msg.pose.pose.position.x,
-                                      msg.pose.pose.position.y);
+  geometry_msgs::TransformStamped transform_correction_local;
+  transform_correction_local.header = msg->header;
+  transform_correction_local.transform.translation.x = msg->pose.pose.position.x;
+  transform_correction_local.transform.translation.y = msg->pose.pose.position.y;
+  transform_correction_local.transform.translation.z = msg->pose.pose.position.z;
+  transform_correction_local.transform.rotation.w = msg->pose.pose.orientation.w;
+  transform_correction_local.transform.rotation.x = msg->pose.pose.orientation.x;
+  transform_correction_local.transform.rotation.y = msg->pose.pose.orientation.y;
+  transform_correction_local.transform.rotation.z = msg->pose.pose.orientation.z;
+
+  geometry_msgs::TransformStamped transform_sensor_correction;
+
+  tf2::doTransform(transform_correction_local, transform_sensor_correction, transform_sensor_rviz);
+
+  ROS_INFO("transform_correction_local %f %f", transform_correction_local.transform.translation.x, transform_correction_local.transform.translation.y);
+  ROS_INFO("transform_rviz_sensor %f %f", transform_rviz_sensor.transform.translation.x, transform_rviz_sensor.transform.translation.y);
+  ROS_INFO("transform_sensor_correction %f %f", transform_sensor_correction.transform.translation.x, transform_sensor_correction.transform.translation.y);
+  ROS_INFO("transform_sensor_world %f %f", transform_sensor_world.transform.translation.x, transform_sensor_world.transform.translation.y);
+  ROS_INFO("transform_sensor_world header %s child %s", transform_sensor_world.header.frame_id.c_str(), transform_sensor_world.child_frame_id.c_str());
+
+
+
+  geometry_msgs::TransformStamped transform_utm_world_enu;
+  transform_utm_world_enu.header.stamp = transform_rviz_sensor.header.stamp;
+  transform_utm_world_enu.header.frame_id = "utm";
+  transform_utm_world_enu.child_frame_id = "world";
+  transform_utm_world_enu.transform.translation.x = world_to_utm_translation_[0];
+  transform_utm_world_enu.transform.translation.y = world_to_utm_translation_[1];
+  transform_utm_world_enu.transform.translation.z = 0.0;
+//  transform_utm_world_enu.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
+  transform_utm_world_enu.transform.rotation.w = 1.0;
+  transform_utm_world_enu.transform.rotation.x = 0.0;
+  transform_utm_world_enu.transform.rotation.y = 0.0;
+  transform_utm_world_enu.transform.rotation.z = 0.0;
+//  transform_utm_world_enu.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
+
+
+
+  tf2::Transform t_utm_world_enu;
+  fromMsg(transform_utm_world_enu.transform, t_utm_world_enu);
+
+  geometry_msgs::TransformStamped transform_utm_world_corrected;
+
+  tf2::doTransform(transform_correction_local, transform_utm_world_corrected, transform_utm_world_enu);
+  tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_utm_world_corrected);
+
+//  tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_sensor_correction);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_rviz_sensor);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_world_rviz);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_utm_world_enu);
+
+
+//  tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_correction_local);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_rviz_sensor);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_world_rviz);
+//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_utm_world);
+
+//  geometry_msgs::TransformStamped utm_sensor_transform;
+//  tf2::doTransform(world_sensor_transform, utm_sensor_transform, transform_utm_world);
+
+
+//  tf2::Transform t_correction_local;
+//  fromMsg(transform_correction_local.transform, t_correction_local);
+//
+//
+//  tf2::Transform t_utm_world_corrected = t_utm_world_enu * t_correction_local;
+//
+//  geometry_msgs::TransformStamped transform_utm_world_corrected;
+//
+//  transform_utm_world_corrected.transform = toMsg(t_utm_world_corrected);
+//  transform_utm_world_corrected.header.stamp = transform_utm_world_enu.header.stamp;
+//  transform_utm_world_corrected.header.frame_id = transform_utm_world_enu.header.frame_id;
+
+  ROS_INFO(" transform_utm_world_corrected.transform.rotation.w %f", transform_utm_world_corrected.transform.rotation.w);
+
+//  tf_buffer.clear();
+  gps_poses_.clear();
+  world_poses_.clear();
+  covariances_.clear();
+  world_to_utm_translation_ = {transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y};
+  world_to_utm_rotation_ = std::acos(transform_utm_world_corrected.transform.rotation.w) * 2.0;
+//  gps_poses_.push_back(w)
+
+}
+void GPSCalibration::navSatCallback(const nav_msgs::Odometry::ConstPtr& msg)
+{
+  if(msg->pose.covariance[0] > max_covariance_ ) {
+    ROS_DEBUG("Dropping GPS data. Covariance limit exceeded. Covariance: %f > %f", msg->pose.covariance[0], max_covariance_);
+    return;
+  }
+  Eigen::Matrix<double, 2, 1> pos_gps(msg->pose.pose.position.x,
+                                      msg->pose.pose.position.y);
   geometry_msgs::TransformStamped transformStamped;
   try{
-    transformStamped = tf_buffer.lookupTransform("world", msg.header.frame_id,
-                                                 msg.header.stamp, ros::Duration(1.0));
+    transformStamped = tf_buffer.lookupTransform("world", msg->header.frame_id,
+                                                 msg->header.stamp, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("Dropping GPS data. %s",ex.what());
@@ -69,7 +172,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
   gps_poses_.emplace_back(pos_gps);
   world_poses_.emplace_back(pos_world);
-  covariances_.emplace_back(msg.pose.covariance[0]);
+  covariances_.emplace_back(msg->pose.covariance[0]);
   ROS_DEBUG("Added observation.");
   
 
@@ -81,7 +184,7 @@ void GPSCalibration::navSatCallback(nav_msgs::Odometry msg)
 
 void GPSCalibration::optimizeCallback(std_msgs::Empty msg)
 {
-  optimize();
+//  optimize();
 }
 
 
@@ -92,8 +195,8 @@ void GPSCalibration::sysCommandCallback(const std_msgs::String::ConstPtr& msg) {
     gps_poses_.clear();
     world_poses_.clear();
     covariances_.clear();
-    translation_ = initial_translation_;
-    rotation_ = initial_rotation_;
+    world_to_utm_translation_ = initial_translation_;
+    world_to_utm_rotation_ = initial_rotation_;
     ROS_INFO("Finished reset.");
   }
 }
@@ -105,18 +208,18 @@ void GPSCalibration::optimize()
   for(int i = 0; i < world_poses_.size(); ++i)
   {
     problem.AddResidualBlock(
-          new ceres::AutoDiffCostFunction<TransformDeltaCostFunctor,
+        new ceres::AutoDiffCostFunction<TransformDeltaCostFunctor,
           2, 2, 1>(
             new TransformDeltaCostFunctor(world_poses_[i],
                                           gps_poses_[i],
                                           covariances_[i])),
-          nullptr, translation_.data(), &rotation_);
+        nullptr, world_to_utm_translation_.data(), &world_to_utm_rotation_);
   }
 
   ceres::LocalParameterization* angle_local_parameterization =
       ceres::examples::AngleLocalParameterization::Create();
 
-  problem.SetParameterization(&rotation_, angle_local_parameterization);
+  problem.SetParameterization(&world_to_utm_rotation_, angle_local_parameterization);
 
 
   ceres::Solver::Options options;
@@ -126,18 +229,17 @@ void GPSCalibration::optimize()
   ceres::Solve(options, &problem, &summary);
   if(summary.termination_type != ceres::TerminationType::CONVERGENCE) {
     ROS_WARN("%s", summary.FullReport().c_str());
-    ROS_INFO("Translation %f %f", translation_[0], translation_[1]);
-    ROS_INFO("Rotation %f", rotation_);
+    ROS_INFO("Translation %f %f", world_to_utm_translation_[0], world_to_utm_translation_[1]);
+    ROS_INFO("Rotation %f", world_to_utm_rotation_);
   }
 
-  if(write_debug_file_)
-  {
+  if(write_debug_file_) {
     std::ofstream myfile;
     myfile.open ("gps_alignment_solution.csv");
     const Rigid3<double> transform = Rigid3<double>(
-          Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], 0.0),
-        Eigen::Quaternion<double>(std::cos(rotation_/2.0), 0.0, 0.0,
-                                  std::sin(rotation_/2.0)));
+          Eigen::Matrix<double, 3, 1>(world_to_utm_translation_[0], world_to_utm_translation_[1], 0.0),
+        Eigen::Quaternion<double>(std::cos(world_to_utm_rotation_/2.0), 0.0, 0.0,
+                                  std::sin(world_to_utm_rotation_/2.0)));
 
     myfile <<"gps_x"<<","<<"gps_y"<<","
           <<"world_x"<<","<<"world_y"<<","<<"covariance"<<"\n";
@@ -155,58 +257,60 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 {
   ros::Time publish_time = ros::Time::now();
 
-  geometry_msgs::TransformStamped worldenu_world_transform;
-  worldenu_world_transform.header.stamp = publish_time;
-  worldenu_world_transform.header.frame_id = "world_enu";
-  worldenu_world_transform.child_frame_id = "world";
-  worldenu_world_transform.transform.translation.x = 0;
-  worldenu_world_transform.transform.translation.y = 0;
-  worldenu_world_transform.transform.translation.z = 0;
-  worldenu_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
-  worldenu_world_transform.transform.rotation.x = 0.0;
-  worldenu_world_transform.transform.rotation.y = 0.0;
-  worldenu_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
-  tf_broadcaster.sendTransform(worldenu_world_transform);
+  geometry_msgs::TransformStamped transform_worldenu_world;
+  transform_worldenu_world.header.stamp = publish_time;
+  transform_worldenu_world.header.frame_id = "world_enu";
+  transform_worldenu_world.child_frame_id = "world";
+  transform_worldenu_world.transform.translation.x = 0;
+  transform_worldenu_world.transform.translation.y = 0;
+  transform_worldenu_world.transform.translation.z = 0;
+  transform_worldenu_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
+  transform_worldenu_world.transform.rotation.x = 0.0;
+  transform_worldenu_world.transform.rotation.y = 0.0;
+  transform_worldenu_world.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
+  tf_broadcaster.sendTransform(transform_worldenu_world);
 
-  geometry_msgs::TransformStamped world_navsat_transform;
+  geometry_msgs::TransformStamped transform_world_sensor;
   try{
-    world_navsat_transform = tf_buffer.lookupTransform("world", gnss_sensor_frame_,
-                                                 publish_time, ros::Duration(1.0));
+    transform_world_sensor = tf_buffer.lookupTransform("world", gnss_sensor_frame_,
+                                                       publish_time, ros::Duration(1.0));
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
     return;
   }
 
-  geometry_msgs::TransformStamped utm_world_transform;
-  utm_world_transform.header.stamp = publish_time;
-  utm_world_transform.header.frame_id = "utm";
-  utm_world_transform.child_frame_id = "world";
-  utm_world_transform.transform.translation.x = translation_[0];
-  utm_world_transform.transform.translation.y = translation_[1];
-  utm_world_transform.transform.translation.z = 0;
-  utm_world_transform.transform.rotation.w = std::cos(rotation_/2.0);
-  utm_world_transform.transform.rotation.x = 0.0;
-  utm_world_transform.transform.rotation.y = 0.0;
-  utm_world_transform.transform.rotation.z = std::sin(rotation_/2.0);
-  geometry_msgs::TransformStamped utm_navsat_transform;
-  tf2::doTransform(world_navsat_transform, utm_navsat_transform, utm_world_transform);
+  geometry_msgs::TransformStamped transform_utm_world;
+  transform_utm_world.header.stamp = publish_time;
+  transform_utm_world.header.frame_id = "utm";
+  transform_utm_world.child_frame_id = "world";
+  transform_utm_world.transform.translation.x = world_to_utm_translation_[0];
+  transform_utm_world.transform.translation.y = world_to_utm_translation_[1];
+  transform_utm_world.transform.translation.z = 0;
+  transform_utm_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
+  transform_utm_world.transform.rotation.x = 0.0;
+  transform_utm_world.transform.rotation.y = 0.0;
+  transform_utm_world.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
+  geometry_msgs::TransformStamped transform_utm_sensor;
+  tf2::doTransform(transform_world_sensor, transform_utm_sensor, transform_utm_world);
 
-  geodesy::UTMPoint utm_point;
-  utm_point.band = 'U';
-  utm_point.zone = 32;
-  utm_point.easting = utm_navsat_transform.transform.translation.x;
-  utm_point.northing = utm_navsat_transform.transform.translation.y;
-  utm_point.altitude = 0.0;
-  geographic_msgs::GeoPoint geo_point = geodesy::toMsg(utm_point);
+  geodesy::UTMPoint utm_point_sensor;
+  utm_point_sensor.band = 'U';
+  utm_point_sensor.zone = 32;
+  utm_point_sensor.easting = transform_utm_sensor.transform.translation.x;
+  utm_point_sensor.northing = transform_utm_sensor.transform.translation.y;
+  utm_point_sensor.altitude = 0.0;
+  geographic_msgs::GeoPoint geo_point_sensor = geodesy::toMsg(utm_point_sensor);
 
-  sensor_msgs::NavSatFix nav_sat_fix;
-  nav_sat_fix.header.stamp = publish_time;
-  nav_sat_fix.header.frame_id = gnss_sensor_frame_;
-  nav_sat_fix.latitude = geo_point.latitude;
-  nav_sat_fix.longitude = geo_point.longitude;
-  nav_sat_fix.altitude = 0.0;
-  nav_sat_fix_pub_.publish(nav_sat_fix);
+  sensor_msgs::NavSatFix nav_sat_fix_sensor;
+  nav_sat_fix_sensor.header.stamp = publish_time;
+  nav_sat_fix_sensor.header.frame_id = gnss_sensor_frame_;
+  nav_sat_fix_sensor.latitude = geo_point_sensor.latitude;
+  nav_sat_fix_sensor.longitude = geo_point_sensor.longitude;
+  nav_sat_fix_sensor.altitude = 0.0;
+  nav_sat_fix_pub_.publish(nav_sat_fix_sensor);
+
+
 
   visualization_msgs::Marker marker;
   marker.header.frame_id = "/world";
@@ -228,9 +332,9 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   marker.frame_locked = true;
 
   const Rigid3d transform(
-      Eigen::Matrix<double, 3, 1>(translation_[0], translation_[1], (0.0)),
-      Eigen::Quaterniond(ceres::cos(rotation_/(2.0)), (0.0), (0.0),
-                           ceres::sin(rotation_/(2.0))));
+      Eigen::Matrix<double, 3, 1>(world_to_utm_translation_[0], world_to_utm_translation_[1], (0.0)),
+      Eigen::Quaterniond(ceres::cos(world_to_utm_rotation_/(2.0)), (0.0), (0.0),
+                         ceres::sin(world_to_utm_rotation_/(2.0))));
   const Rigid3d transform_inv = transform.inverse();
 
   for(int pose_idx = 0; pose_idx < gps_poses_.size(); ++pose_idx) {

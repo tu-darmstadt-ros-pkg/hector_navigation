@@ -19,6 +19,7 @@
 
 #include <iostream>
 #include <string>
+#include <utility>
 
 #include "Eigen/Core"
 #include "Eigen/Geometry"
@@ -128,8 +129,8 @@ class TransformDeltaCostFunctor {
 public:
     // Creates an OccupiedSpaceCostFunctor using the specified grid, 'rotation' to
     // add to all poses, and point cloud.
-    TransformDeltaCostFunctor(Eigen::Matrix<double, 2, 1> pos_world,
-                              Eigen::Matrix<double, 2, 1> pos_gps,
+    TransformDeltaCostFunctor(const Eigen::Matrix<double, 2, 1>&  pos_world,
+                              const Eigen::Matrix<double, 2, 1>&  pos_gps,
                               double covariance)
         : pos_world_(pos_world),
           pos_gps_(pos_gps),
@@ -166,8 +167,8 @@ public:
     }
 
 private:
-    Eigen::Matrix<double, 2, 1> pos_world_;
-    Eigen::Matrix<double, 2, 1> pos_gps_;
+    const Eigen::Matrix<double, 2, 1>& pos_world_;
+    const Eigen::Matrix<double, 2, 1>& pos_gps_;
     double inv_covariance_;
 };
 

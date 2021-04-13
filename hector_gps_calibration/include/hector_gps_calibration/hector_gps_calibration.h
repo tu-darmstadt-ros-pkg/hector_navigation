@@ -32,6 +32,7 @@
 #include <tf2_ros/transform_listener.h>
 #include <tf2_ros/transform_broadcaster.h>
 #include <tf2/utils.h>
+#include <tf2/convert.h>
 #include <geometry_msgs/PoseStamped.h>
 #include <nav_msgs/Odometry.h>
 #include <std_msgs/Empty.h>
@@ -47,7 +48,8 @@ public:
 
 private:
 
-  void navSatCallback(nav_msgs::Odometry msg);
+  void initialposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
+  void navSatCallback(const nav_msgs::Odometry::ConstPtr& msg);
   void optimizeCallback(std_msgs::Empty msg);
   void sysCommandCallback(const std_msgs::String::ConstPtr& msg);
   void optimize();
@@ -65,14 +67,15 @@ private:
   ros::Subscriber nav_sat_sub_;
   ros::Subscriber optimize_sub_;
   ros::Subscriber syscommand_sub_;
+  ros::Subscriber initialpose_sub_;
 
   ros::Publisher nav_sat_fix_pub_;
   ros::Publisher marker_pub_;
 
   std::vector<ros::WallTimer> wall_timers_;
 
-  std::array<double, 2> translation_;
-  double rotation_;
+  std::array<double, 2> world_to_utm_translation_;
+  double world_to_utm_rotation_;
   std::array<double, 2> initial_translation_;
   double initial_rotation_;
   bool write_debug_file_;
