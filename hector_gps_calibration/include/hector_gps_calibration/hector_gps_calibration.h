@@ -48,7 +48,7 @@ public:
 
 private:
 
-  void initialposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
+  void initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg);
   void navSatCallback(const nav_msgs::Odometry::ConstPtr& msg);
   void optimizeCallback(std_msgs::Empty msg);
   void sysCommandCallback(const std_msgs::String::ConstPtr& msg);
