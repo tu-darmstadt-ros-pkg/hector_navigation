@@ -31,7 +31,7 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
   syscommand_sub_ = nh.subscribe(
       "syscommand", 10, &GPSCalibration::sysCommandCallback, this);
   initialpose_sub_ = nh.subscribe(
-      "initialpose", 10, &GPSCalibration::initialposeCallback, this);
+      "initialpose", 10, &GPSCalibration::initialPoseCallback, this);
   nav_sat_fix_pub_ = nh.advertise<sensor_msgs::NavSatFix>("/gps_calibration/gps/fix", 5);
   marker_pub_ = nh.advertise<visualization_msgs::Marker>("/gps_calibration/marker", 5);
 
@@ -39,96 +39,51 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 }
 
 
-void GPSCalibration::initialposeCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
-
+void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
+  geometry_msgs::TransformStamped transform_world_enu_world;
+  geometry_msgs::TransformStamped transform_world_msg;
   geometry_msgs::TransformStamped transform_sensor_world;
-  geometry_msgs::TransformStamped transform_rviz_sensor;
-  geometry_msgs::TransformStamped transform_sensor_rviz;
-  geometry_msgs::TransformStamped transform_world_rviz;
+
   try{
+    transform_world_enu_world = tf_buffer.lookupTransform("world_enu", "world", ros::Time(0));
+    transform_world_msg = tf_buffer.lookupTransform("world", msg->header.frame_id, ros::Time(0));
     transform_sensor_world = tf_buffer.lookupTransform(gnss_sensor_frame_, "world", ros::Time(0));
-    transform_rviz_sensor = tf_buffer.lookupTransform(msg->header.frame_id, gnss_sensor_frame_, ros::Time(0));
-    transform_sensor_rviz = tf_buffer.lookupTransform(gnss_sensor_frame_, msg->header.frame_id, ros::Time(0));
-    transform_world_rviz = tf_buffer.lookupTransform("world", msg->header.frame_id, ros::Time(0));
   }
   catch (tf2::TransformException &ex) {
     ROS_WARN("%s",ex.what());
     return;
   }
-  geometry_msgs::TransformStamped transform_correction_local;
-  transform_correction_local.header = msg->header;
-  transform_correction_local.transform.translation.x = msg->pose.pose.position.x;
-  transform_correction_local.transform.translation.y = msg->pose.pose.position.y;
-  transform_correction_local.transform.translation.z = msg->pose.pose.position.z;
-  transform_correction_local.transform.rotation.w = msg->pose.pose.orientation.w;
-  transform_correction_local.transform.rotation.x = msg->pose.pose.orientation.x;
-  transform_correction_local.transform.rotation.y = msg->pose.pose.orientation.y;
-  transform_correction_local.transform.rotation.z = msg->pose.pose.orientation.z;
-
-  geometry_msgs::TransformStamped transform_sensor_correction;
-
-  tf2::doTransform(transform_correction_local, transform_sensor_correction, transform_sensor_rviz);
-
-  ROS_INFO("transform_correction_local %f %f", transform_correction_local.transform.translation.x, transform_correction_local.transform.translation.y);
-  ROS_INFO("transform_rviz_sensor %f %f", transform_rviz_sensor.transform.translation.x, transform_rviz_sensor.transform.translation.y);
-  ROS_INFO("transform_sensor_correction %f %f", transform_sensor_correction.transform.translation.x, transform_sensor_correction.transform.translation.y);
-  ROS_INFO("transform_sensor_world %f %f", transform_sensor_world.transform.translation.x, transform_sensor_world.transform.translation.y);
-  ROS_INFO("transform_sensor_world header %s child %s", transform_sensor_world.header.frame_id.c_str(), transform_sensor_world.child_frame_id.c_str());
-
-
+  geometry_msgs::TransformStamped transform_msg_correction;
+  transform_msg_correction.header = msg->header;
+  transform_msg_correction.transform.translation.x = msg->pose.pose.position.x;
+  transform_msg_correction.transform.translation.y = msg->pose.pose.position.y;
+  transform_msg_correction.transform.translation.z = msg->pose.pose.position.z;
+  transform_msg_correction.transform.rotation.w = msg->pose.pose.orientation.w;
+  transform_msg_correction.transform.rotation.x = msg->pose.pose.orientation.x;
+  transform_msg_correction.transform.rotation.y = msg->pose.pose.orientation.y;
+  transform_msg_correction.transform.rotation.z = msg->pose.pose.orientation.z;
 
   geometry_msgs::TransformStamped transform_utm_world_enu;
-  transform_utm_world_enu.header.stamp = transform_rviz_sensor.header.stamp;
+  transform_utm_world_enu.header.stamp = msg->header.stamp;
   transform_utm_world_enu.header.frame_id = "utm";
   transform_utm_world_enu.child_frame_id = "world";
   transform_utm_world_enu.transform.translation.x = world_to_utm_translation_[0];
   transform_utm_world_enu.transform.translation.y = world_to_utm_translation_[1];
   transform_utm_world_enu.transform.translation.z = 0.0;
-//  transform_utm_world_enu.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
   transform_utm_world_enu.transform.rotation.w = 1.0;
   transform_utm_world_enu.transform.rotation.x = 0.0;
   transform_utm_world_enu.transform.rotation.y = 0.0;
   transform_utm_world_enu.transform.rotation.z = 0.0;
-//  transform_utm_world_enu.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
-
-
 
   tf2::Transform t_utm_world_enu;
   fromMsg(transform_utm_world_enu.transform, t_utm_world_enu);
 
   geometry_msgs::TransformStamped transform_utm_world_corrected;
 
-  tf2::doTransform(transform_correction_local, transform_utm_world_corrected, transform_utm_world_enu);
+  tf2::doTransform(transform_world_enu_world, transform_utm_world_corrected, transform_utm_world_enu);
+  tf2::doTransform(transform_world_msg, transform_utm_world_corrected, transform_utm_world_corrected);
+  tf2::doTransform(transform_msg_correction, transform_utm_world_corrected, transform_utm_world_corrected);
   tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_utm_world_corrected);
-
-//  tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_sensor_correction);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_rviz_sensor);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_world_rviz);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_utm_world_enu);
-
-
-//  tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_correction_local);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_rviz_sensor);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_world_rviz);
-//  tf2::doTransform(transform_utm_world_corrected, transform_utm_world_corrected, transform_utm_world);
-
-//  geometry_msgs::TransformStamped utm_sensor_transform;
-//  tf2::doTransform(world_sensor_transform, utm_sensor_transform, transform_utm_world);
-
-
-//  tf2::Transform t_correction_local;
-//  fromMsg(transform_correction_local.transform, t_correction_local);
-//
-//
-//  tf2::Transform t_utm_world_corrected = t_utm_world_enu * t_correction_local;
-//
-//  geometry_msgs::TransformStamped transform_utm_world_corrected;
-//
-//  transform_utm_world_corrected.transform = toMsg(t_utm_world_corrected);
-//  transform_utm_world_corrected.header.stamp = transform_utm_world_enu.header.stamp;
-//  transform_utm_world_corrected.header.frame_id = transform_utm_world_enu.header.frame_id;
-
-  ROS_INFO(" transform_utm_world_corrected.transform.rotation.w %f", transform_utm_world_corrected.transform.rotation.w);
 
 //  tf_buffer.clear();
   gps_poses_.clear();
