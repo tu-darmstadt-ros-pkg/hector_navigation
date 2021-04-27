@@ -40,11 +40,13 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 
 void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
+  geometry_msgs::TransformStamped transform_utm_world_enu;
   geometry_msgs::TransformStamped transform_world_enu_world;
   geometry_msgs::TransformStamped transform_world_msg;
   geometry_msgs::TransformStamped transform_sensor_world;
 
   try{
+    transform_utm_world_enu = tf_buffer.lookupTransform("utm", "world_enu", ros::Time(0));
     transform_world_enu_world = tf_buffer.lookupTransform("world_enu", "world", ros::Time(0));
     transform_world_msg = tf_buffer.lookupTransform("world", msg->header.frame_id, ros::Time(0));
     transform_sensor_world = tf_buffer.lookupTransform(gnss_sensor_frame_, "world", ros::Time(0));
@@ -53,6 +55,7 @@ void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovariance
     ROS_WARN("%s",ex.what());
     return;
   }
+
   geometry_msgs::TransformStamped transform_msg_correction;
   transform_msg_correction.header = msg->header;
   transform_msg_correction.transform.translation.x = msg->pose.pose.position.x;
@@ -63,21 +66,6 @@ void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovariance
   transform_msg_correction.transform.rotation.y = msg->pose.pose.orientation.y;
   transform_msg_correction.transform.rotation.z = msg->pose.pose.orientation.z;
 
-  geometry_msgs::TransformStamped transform_utm_world_enu;
-  transform_utm_world_enu.header.stamp = msg->header.stamp;
-  transform_utm_world_enu.header.frame_id = "utm";
-  transform_utm_world_enu.child_frame_id = "world";
-  transform_utm_world_enu.transform.translation.x = world_to_utm_translation_[0];
-  transform_utm_world_enu.transform.translation.y = world_to_utm_translation_[1];
-  transform_utm_world_enu.transform.translation.z = 0.0;
-  transform_utm_world_enu.transform.rotation.w = 1.0;
-  transform_utm_world_enu.transform.rotation.x = 0.0;
-  transform_utm_world_enu.transform.rotation.y = 0.0;
-  transform_utm_world_enu.transform.rotation.z = 0.0;
-
-  tf2::Transform t_utm_world_enu;
-  fromMsg(transform_utm_world_enu.transform, t_utm_world_enu);
-
   geometry_msgs::TransformStamped transform_utm_world_corrected;
 
   tf2::doTransform(transform_world_enu_world, transform_utm_world_corrected, transform_utm_world_enu);
@@ -85,12 +73,24 @@ void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovariance
   tf2::doTransform(transform_msg_correction, transform_utm_world_corrected, transform_utm_world_corrected);
   tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_utm_world_corrected);
 
+  tf2::Transform corrected_transform;
+  fromMsg(transform_utm_world_corrected.transform, corrected_transform);
+  tf2::Matrix3x3 m(corrected_transform.getRotation());
+  double roll, pitch, yaw;
+  m.getRPY(roll, pitch, yaw);
+
 //  tf_buffer.clear();
   gps_poses_.clear();
   world_poses_.clear();
   covariances_.clear();
   world_to_utm_translation_ = {transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y};
-  world_to_utm_rotation_ = std::acos(transform_utm_world_corrected.transform.rotation.w) * 2.0;
+  world_to_utm_rotation_ = yaw;
+  
+//  ROS_INFO("Rotation %f %f %f %f", transform_utm_world_corrected.transform.rotation.w, transform_utm_world_corrected.transform.rotation.x, transform_utm_world_corrected.transform.rotation.y, transform_utm_world_corrected.transform.rotation.z);
+//  ROS_INFO("Translation %f %f %f ", transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y, transform_utm_world_corrected.transform.translation.z);
+//  ROS_INFO("Angle Wrap %f ", world_to_utm_rotation_);
+//  ROS_INFO("acos %f \t %f ", transform_utm_world_corrected.transform.rotation.w, std::acos(transform_utm_world_corrected.transform.rotation.w));
+
 //  gps_poses_.push_back(w)
 
 }
@@ -212,6 +212,12 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
 {
   ros::Time publish_time = ros::Time::now();
 
+  if(std::abs(world_to_utm_rotation_) > M_PI) {
+    ROS_ERROR("Angle out of range: %f", world_to_utm_rotation_);
+  }
+
+  tf2::Quaternion q;
+  q.setRPY(0.0, 0.0, world_to_utm_rotation_);
   geometry_msgs::TransformStamped transform_worldenu_world;
   transform_worldenu_world.header.stamp = publish_time;
   transform_worldenu_world.header.frame_id = "world_enu";
@@ -219,10 +225,10 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   transform_worldenu_world.transform.translation.x = 0;
   transform_worldenu_world.transform.translation.y = 0;
   transform_worldenu_world.transform.translation.z = 0;
-  transform_worldenu_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
   transform_worldenu_world.transform.rotation.x = 0.0;
   transform_worldenu_world.transform.rotation.y = 0.0;
   transform_worldenu_world.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
+  transform_worldenu_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
   tf_broadcaster.sendTransform(transform_worldenu_world);
 
   geometry_msgs::TransformStamped transform_world_sensor;
@@ -235,19 +241,20 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
     return;
   }
 
-  geometry_msgs::TransformStamped transform_utm_world;
-  transform_utm_world.header.stamp = publish_time;
-  transform_utm_world.header.frame_id = "utm";
-  transform_utm_world.child_frame_id = "world";
-  transform_utm_world.transform.translation.x = world_to_utm_translation_[0];
-  transform_utm_world.transform.translation.y = world_to_utm_translation_[1];
-  transform_utm_world.transform.translation.z = 0;
-  transform_utm_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
-  transform_utm_world.transform.rotation.x = 0.0;
-  transform_utm_world.transform.rotation.y = 0.0;
-  transform_utm_world.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
+  geometry_msgs::TransformStamped transform_utm_world_enu;
+  transform_utm_world_enu.header.stamp = publish_time;
+  transform_utm_world_enu.header.frame_id = "utm";
+  transform_utm_world_enu.child_frame_id = "world_enu";
+  transform_utm_world_enu.transform.translation.x = world_to_utm_translation_[0];
+  transform_utm_world_enu.transform.translation.y = world_to_utm_translation_[1];
+  transform_utm_world_enu.transform.translation.z = 0;
+  transform_utm_world_enu.transform.rotation.w = 1.0;
+  transform_utm_world_enu.transform.rotation.x = 0.0;
+  transform_utm_world_enu.transform.rotation.y = 0.0;
+  transform_utm_world_enu.transform.rotation.z = 0.0;
   geometry_msgs::TransformStamped transform_utm_sensor;
-  tf2::doTransform(transform_world_sensor, transform_utm_sensor, transform_utm_world);
+  tf2::doTransform(transform_world_sensor, transform_utm_sensor, transform_utm_world_enu);
+  tf_broadcaster.sendTransform(transform_utm_world_enu);
 
   geodesy::UTMPoint utm_point_sensor;
   utm_point_sensor.band = 'U';
