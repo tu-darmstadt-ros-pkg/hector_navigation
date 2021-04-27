@@ -40,14 +40,12 @@ GPSCalibration::GPSCalibration(ros::NodeHandle &nh)
 
 
 void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovarianceStamped::ConstPtr& msg) {
-  geometry_msgs::TransformStamped transform_utm_world_enu;
-  geometry_msgs::TransformStamped transform_world_enu_world;
+  geometry_msgs::TransformStamped transform_utm_world;
   geometry_msgs::TransformStamped transform_world_msg;
   geometry_msgs::TransformStamped transform_sensor_world;
 
   try{
-    transform_utm_world_enu = tf_buffer.lookupTransform("utm", "world_enu", ros::Time(0));
-    transform_world_enu_world = tf_buffer.lookupTransform("world_enu", "world", ros::Time(0));
+    transform_utm_world = tf_buffer.lookupTransform("utm", "world", ros::Time(0));
     transform_world_msg = tf_buffer.lookupTransform("world", msg->header.frame_id, ros::Time(0));
     transform_sensor_world = tf_buffer.lookupTransform(gnss_sensor_frame_, "world", ros::Time(0));
   }
@@ -68,10 +66,34 @@ void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovariance
 
   geometry_msgs::TransformStamped transform_utm_world_corrected;
 
-  tf2::doTransform(transform_world_enu_world, transform_utm_world_corrected, transform_utm_world_enu);
-  tf2::doTransform(transform_world_msg, transform_utm_world_corrected, transform_utm_world_corrected);
+  tf2::doTransform(transform_world_msg, transform_utm_world_corrected, transform_utm_world);
   tf2::doTransform(transform_msg_correction, transform_utm_world_corrected, transform_utm_world_corrected);
   tf2::doTransform(transform_sensor_world, transform_utm_world_corrected, transform_utm_world_corrected);
+
+  // Verify result
+//  geometry_msgs::TransformStamped transform_utm_correction_desired;
+//  tf2::doTransform(transform_world_msg, transform_utm_correction_desired, transform_utm_world);
+//  tf2::doTransform(transform_msg_correction, transform_utm_correction_desired, transform_utm_correction_desired);
+//
+//  geometry_msgs::TransformStamped transform_world_sensor;
+//  try{
+//    transform_world_sensor = tf_buffer.lookupTransform("world", gnss_sensor_frame_, ros::Time(0));
+//  }
+//  catch (tf2::TransformException &ex) {
+//    ROS_WARN("%s",ex.what());
+//    return;
+//  }
+//  geometry_msgs::TransformStamped transform_utm_msg_corrected;
+//  tf2::doTransform(transform_world_sensor, transform_utm_msg_corrected, transform_utm_world_corrected);
+//
+//  ROS_INFO("Rotation desired /t %f %f %f %f", transform_utm_correction_desired.transform.rotation.w, transform_utm_correction_desired.transform.rotation.x, transform_utm_correction_desired.transform.rotation.y, transform_utm_correction_desired.transform.rotation.z);
+//  ROS_INFO("Translation desired /t %f %f %f ", transform_utm_correction_desired.transform.translation.x, transform_utm_correction_desired.transform.translation.y, transform_utm_correction_desired.transform.translation.z);
+
+//  ROS_INFO("Rotation corrected /t %f %f %f %f", transform_utm_msg_corrected.transform.rotation.w, transform_utm_msg_corrected.transform.rotation.x, transform_utm_msg_corrected.transform.rotation.y, transform_utm_msg_corrected.transform.rotation.z);
+//  ROS_INFO("Translation corrected /t %f %f %f ", transform_utm_msg_corrected.transform.translation.x, transform_utm_msg_corrected.transform.translation.y, transform_utm_msg_corrected.transform.translation.z);
+  // Done Verify
+
+
 
   tf2::Transform corrected_transform;
   fromMsg(transform_utm_world_corrected.transform, corrected_transform);
@@ -79,19 +101,19 @@ void GPSCalibration::initialPoseCallback(const geometry_msgs::PoseWithCovariance
   double roll, pitch, yaw;
   m.getRPY(roll, pitch, yaw);
 
+
+//  ROS_INFO("Result \t %f %f %f", transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y, yaw);
+//  ROS_INFO("Delta \t %f %f %f", transform_utm_world_corrected.transform.translation.x- world_to_utm_translation_[0], transform_utm_world_corrected.transform.translation.y-world_to_utm_translation_[1], yaw-world_to_utm_rotation_);
 //  tf_buffer.clear();
   gps_poses_.clear();
   world_poses_.clear();
   covariances_.clear();
   world_to_utm_translation_ = {transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y};
   world_to_utm_rotation_ = yaw;
-  
-//  ROS_INFO("Rotation %f %f %f %f", transform_utm_world_corrected.transform.rotation.w, transform_utm_world_corrected.transform.rotation.x, transform_utm_world_corrected.transform.rotation.y, transform_utm_world_corrected.transform.rotation.z);
-//  ROS_INFO("Translation %f %f %f ", transform_utm_world_corrected.transform.translation.x, transform_utm_world_corrected.transform.translation.y, transform_utm_world_corrected.transform.translation.z);
-//  ROS_INFO("Angle Wrap %f ", world_to_utm_rotation_);
-//  ROS_INFO("acos %f \t %f ", transform_utm_world_corrected.transform.rotation.w, std::acos(transform_utm_world_corrected.transform.rotation.w));
-
 //  gps_poses_.push_back(w)
+
+
+
 
 }
 void GPSCalibration::navSatCallback(const nav_msgs::Odometry::ConstPtr& msg)
@@ -227,8 +249,8 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   transform_worldenu_world.transform.translation.z = 0;
   transform_worldenu_world.transform.rotation.x = 0.0;
   transform_worldenu_world.transform.rotation.y = 0.0;
-  transform_worldenu_world.transform.rotation.z = std::sin(world_to_utm_rotation_/2.0);
-  transform_worldenu_world.transform.rotation.w = std::cos(world_to_utm_rotation_/2.0);
+  transform_worldenu_world.transform.rotation.z = q.z();
+  transform_worldenu_world.transform.rotation.w = q.w();
   tf_broadcaster.sendTransform(transform_worldenu_world);
 
   geometry_msgs::TransformStamped transform_world_sensor;
@@ -252,9 +274,10 @@ void GPSCalibration::publishTF(const ::ros::WallTimerEvent& unused_timer_event)
   transform_utm_world_enu.transform.rotation.x = 0.0;
   transform_utm_world_enu.transform.rotation.y = 0.0;
   transform_utm_world_enu.transform.rotation.z = 0.0;
+  tf_broadcaster.sendTransform(transform_utm_world_enu);
+
   geometry_msgs::TransformStamped transform_utm_sensor;
   tf2::doTransform(transform_world_sensor, transform_utm_sensor, transform_utm_world_enu);
-  tf_broadcaster.sendTransform(transform_utm_world_enu);
 
   geodesy::UTMPoint utm_point_sensor;
   utm_point_sensor.band = 'U';
